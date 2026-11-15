@@ -47,6 +47,24 @@ object Palette {
 
 /** الخلفيات الجاهزة (تُستبدل بصورة من الجهاز عند اختيارها). */
 object Wallpapers {
+    /** صور مضمّنة: المفتاح ← (الاسم، اسم المورد في drawable). */
+    val photos: List<Triple<String, String, String>> = listOf(
+        Triple("res:wp_lake", "بحيرة الغروب", "wp_lake"),
+        Triple("res:wp_palms", "نخيل وانعكاس", "wp_palms"),
+        Triple("res:wp_forest", "غابة الخريف", "wp_forest"),
+        Triple("res:wp_canyon", "وادي الثلج", "wp_canyon")
+    )
+    fun resId(key: String): Int? = when (key) {
+        "res:wp_lake" -> com.tvlauncher.R.drawable.wp_lake
+        "res:wp_palms" -> com.tvlauncher.R.drawable.wp_palms
+        "res:wp_forest" -> com.tvlauncher.R.drawable.wp_forest
+        "res:wp_canyon" -> com.tvlauncher.R.drawable.wp_canyon
+        else -> null
+    }
+    /** كل الخلفيات الجاهزة (تدرجات + صور) بمفاتيحها وأسمائها. */
+    fun all(): List<Pair<String, String>> =
+        presets.mapIndexed { i, p -> "preset:$i" to p.first } + photos.map { it.first to it.second }
+
     val presets: List<Pair<String, Brush>> = listOf(
         "ليل" to Brush.linearGradient(listOf(Color(0xFF0B1220), Color(0xFF14284B), Color(0xFF1B3B5A))),
         "غروب" to Brush.linearGradient(listOf(Color(0xFF1A1033), Color(0xFF4A2149), Color(0xFF8A3F3A))),

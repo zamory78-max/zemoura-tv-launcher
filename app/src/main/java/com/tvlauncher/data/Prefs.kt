@@ -35,7 +35,10 @@ data class Settings(
     val channels: String = "",                   // معرّفات قنوات يوتيوب (UC...) مفصولة بفاصلة
     val feedUrl: String = "",                    // رابط JSON لمصدر فيديو مخصص
     val appOrder: List<String> = emptyList(),     // ترتيب التطبيقات (أسماء الحزم)
-    val folders: List<Folder> = emptyList()
+    val folders: List<Folder> = emptyList(),
+    val wallpaperAuto: Boolean = false,           // تغيير الخلفية تلقائياً
+    val wallpaperMinutes: Int = 10,
+    val wallpaperSet: Set<String> = emptySet()    // الخلفيات المشمولة بالتغيير التلقائي
 )
 
 class Prefs(private val context: Context) {
@@ -67,6 +70,9 @@ class Prefs(private val context: Context) {
         val rows = stringPreferencesKey("rows")
         val layoutRtl = booleanPreferencesKey("layout_rtl")
         val channels = stringPreferencesKey("channels")
+        val wpAuto = booleanPreferencesKey("wp_auto")
+        val wpMinutes = intPreferencesKey("wp_minutes")
+        val wpSet = stringSetPreferencesKey("wp_set")
     }
 
     val flow: Flow<Settings> = context.store.data.map { p ->
@@ -98,7 +104,10 @@ class Prefs(private val context: Context) {
             layoutRtl = p[K.layoutRtl] ?: d.layoutRtl,
             channels = p[K.channels] ?: d.channels,
             appOrder = (p[K.appOrder] ?: "").split("\n").filter { it.isNotEmpty() },
-            folders = foldersFromJson(p[K.folders])
+            folders = foldersFromJson(p[K.folders]),
+            wallpaperAuto = p[K.wpAuto] ?: d.wallpaperAuto,
+            wallpaperMinutes = p[K.wpMinutes] ?: d.wallpaperMinutes,
+            wallpaperSet = p[K.wpSet] ?: d.wallpaperSet
         )
     }
 
@@ -128,6 +137,10 @@ class Prefs(private val context: Context) {
     suspend fun setFeedUrl(v: String) = edit { it[K.feedUrl] = v }
     suspend fun setAppOrder(v: List<String>) = edit { it[K.appOrder] = v.joinToString("\n") }
     suspend fun setFolders(v: List<Folder>) = edit { it[K.folders] = foldersToJson(v) }
+
+    suspend fun setWallpaperAuto(v: Boolean) = edit { it[K.wpAuto] = v }
+    suspend fun setWallpaperMinutes(v: Int) = edit { it[K.wpMinutes] = v }
+    suspend fun setWallpaperSet(v: Set<String>) = edit { it[K.wpSet] = v }
 
     private suspend fun edit(block: (MutablePreferences) -> Unit) {
         context.store.edit { block(it) }

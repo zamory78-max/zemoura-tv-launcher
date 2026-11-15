@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -157,6 +160,15 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
         item { Section("الخلفية") }
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+                items(Wallpapers.photos) { (key, name, _) ->
+                    Focusable(onClick = { vm.update { setWallpaper(key) } }, modifier = Modifier.size(180.dp, 100.dp)) {
+                        Box(Modifier.fillMaxSize()) {
+                            AsyncImage(model = Wallpapers.resId(key), contentDescription = name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                            Text(name + if (s.wallpaper == key) " ✓" else "", color = Color.White, fontSize = 18.sp,
+                                modifier = Modifier.align(Alignment.BottomCenter).background(Color(0x99000000)).fillMaxWidth().padding(6.dp))
+                        }
+                    }
+                }
                 itemsIndexed(Wallpapers.presets) { i, (name, brush) ->
                     Focusable(onClick = { vm.update { setWallpaper("preset:$i") } }, modifier = Modifier.size(180.dp, 100.dp)) {
                         Box(Modifier.fillMaxSize().background(brush), contentAlignment = Alignment.BottomCenter) {
@@ -166,6 +178,14 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
                 }
             }
         }
+        item {
+            ToggleItem("تغيير الخلفية تلقائياً", "تتبدّل الخلفية بين الخلفيات التي تختارها أدناه", s.wallpaperAuto) { v ->
+                vm.update { setWallpaperAuto(v) }
+                if (v && s.wallpaperSet.size < 2) msg = "اختر خلفيتين على الأقل من «الخلفيات المشمولة بالتغيير»."
+            }
+        }
+        item { RowItem("مدة التغيير", null, "${s.wallpaperMinutes} دقيقة") { dialog = "wpMinutes" } }
+        item { RowItem("الخلفيات المشمولة بالتغيير", "اختر الخلفيات التي تتبدّل بينها", "${s.wallpaperSet.size}") { dialog = "wpSet" } }
         item { RowItem("اختيار صورة من الجهاز", "تُحفظ ويُعاد تحميلها بعد التشغيل") { pickImage.launch(arrayOf("image/*")) } }
 
         item { Section("الموقع والصلاة") }
@@ -205,6 +225,11 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
 
     val selRow = s.rows.firstOrNull { it.id == rowSel }
     when (dialog) {
+        "wpMinutes" -> ChoiceDialog("مدة التغيير", listOf(1, 5, 10, 30, 60).map { it to "$it دقيقة" },
+            onPick = { v -> vm.update { setWallpaperMinutes(v) }; dialog = "" }, onDismiss = { dialog = "" })
+        "wpSet" -> MultiToggleDialog("الخلفيات المشمولة", Wallpapers.all().map { (k, n) -> Triple(k, n, k in s.wallpaperSet) },
+            onToggle = { k -> vm.update { setWallpaperSet(if (k in s.wallpaperSet) s.wallpaperSet - k else s.wallpaperSet + k) } },
+            onDismiss = { dialog = "" })
         "newRow" -> TextInputDialog("اسم الصف الجديد", hint = "مثال: ألعاب", onOk = { if (it.isNotBlank()) vm.addRow(it); dialog = "" }, onDismiss = { dialog = "" })
         "rowMenu" -> if (selRow == null) dialog = "" else ChoiceDialog(selRow.name,
             listOf("apps" to "اختيار تطبيقات الصف", "rename" to "تغيير الاسم", "up" to "تحريك الصف للأعلى", "down" to "تحريك الصف للأسفل", "delete" to "حذف الصف (ترجع تطبيقاته للأصل)"),

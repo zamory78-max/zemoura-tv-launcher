@@ -48,31 +48,50 @@ private fun weatherBrush(w: WeatherInfo?): Brush {
 
 @Composable
 fun WeatherCard(w: WeatherInfo?, city: String, modifier: Modifier = Modifier) {
-    Row(
-        modifier.clip(RoundedCornerShape(26.dp)).background(weatherBrush(w)).padding(horizontal = 24.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically
+    Column(
+        modifier.clip(RoundedCornerShape(30.dp)).background(weatherBrush(w)).padding(horizontal = 28.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        WeatherIcon(w?.code ?: 0, w?.isDay ?: true, 76.dp)
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(city, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(w?.let { "${it.tempC}°" } ?: "--°", color = Color.White, fontSize = 54.sp, fontWeight = FontWeight.ExtraBold)
+        Row(horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.CenterVertically) {
+            WeatherIcon(w?.code ?: 0, w?.isDay ?: true, 112.dp)
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(city, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(w?.let { "${it.tempC}°" } ?: "--°", color = Color.White, fontSize = 72.sp, fontWeight = FontWeight.ExtraBold)
+                Text(w?.description ?: "جارٍ التحديث…", color = Color(0xFFE6EEF9), fontSize = 22.sp)
             }
-            Text(w?.description ?: "جارٍ التحديث…", color = Color(0xFFE6EEF9), fontSize = 18.sp)
-            if (w != null) {
-                Text("↑${w.maxC}°  ↓${w.minC}°", color = Color(0xFFE6EEF9), fontSize = 16.sp)
-                Text("رطوبة ${w.humidity}%  ·  رياح ${w.windKmh} كم/س", color = Color(0xFFE6EEF9), fontSize = 14.sp)
+            if (w != null) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("↑${w.maxC}°   ↓${w.minC}°", color = Color(0xFFE6EEF9), fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Text("رطوبة ${w.humidity}%", color = Color(0xFFE6EEF9), fontSize = 18.sp)
+                Text("رياح ${w.windKmh} كم/س", color = Color(0xFFE6EEF9), fontSize = 18.sp)
+            }
+        }
+        if (w != null && w.days.isNotEmpty()) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            w.days.forEach { d ->
+                Row(
+                    Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(Color(0x26FFFFFF)).padding(horizontal = 10.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically
+                ) {
+                    WeatherIcon(d.code, true, 44.dp, animated = false)
+                    Column {
+                        Text(d.label, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text("${d.maxC}° / ${d.minC}°", color = Color(0xFFE6EEF9), fontSize = 17.sp, maxLines = 1)
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-fun WeatherIcon(code: Int, isDay: Boolean, size: Dp) {
-    val t = rememberInfiniteTransition(label = "wx")
-    val spin by t.animateFloat(0f, 360f, infiniteRepeatable(tween(24000, easing = LinearEasing)), label = "spin")
-    val drift by t.animateFloat(-4f, 4f, infiniteRepeatable(tween(3200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "drift")
-    val drop by t.animateFloat(0f, 1f, infiniteRepeatable(tween(900, easing = LinearEasing)), label = "drop")
+fun WeatherIcon(code: Int, isDay: Boolean, size: Dp, animated: Boolean = true) {
+    var spin = 0f; var drift = 0f; var drop = 0.3f
+    if (animated) {
+        val t = rememberInfiniteTransition(label = "wx")
+        val s1 by t.animateFloat(0f, 360f, infiniteRepeatable(tween(24000, easing = LinearEasing)), label = "spin")
+        val d1 by t.animateFloat(-4f, 4f, infiniteRepeatable(tween(3200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "drift")
+        val r1 by t.animateFloat(0f, 1f, infiniteRepeatable(tween(900, easing = LinearEasing)), label = "drop")
+        spin = s1; drift = d1; drop = r1
+    }
 
     val sunny = code in 0..1
     val partly = code == 2
@@ -141,13 +160,13 @@ fun PrayerCard(s: Settings, now: Date, modifier: Modifier = Modifier) {
     Row(
         modifier.clip(RoundedCornerShape(26.dp))
             .background(Brush.linearGradient(listOf(Color(0xFF123B3A), Color(0xFF1B2F5E), Color(0xFF3A2A66))))
-            .padding(horizontal = 24.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 28.dp, vertical = 18.dp),
+        horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically
     ) {
         // حلقة التقدّم نحو الصلاة القادمة
-        Box(Modifier.size(112.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(150.dp), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
-                val stroke = 11.dp.toPx()
+                val stroke = 13.dp.toPx()
                 val inset = stroke / 2
                 val arcSize = Size(size.width - stroke, size.height - stroke)
                 drawArc(Color(0x33FFFFFF), 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
@@ -157,15 +176,15 @@ fun PrayerCard(s: Settings, now: Date, modifier: Modifier = Modifier) {
                 )
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(next.name, color = Palette.Amber, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
-                Text(fmt.format(next.time), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                Text(next.name, color = Palette.Amber, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+                Text(fmt.format(next.time), color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Bold)
             }
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("%02d:%02d:%02d".format(left / 3600, (left % 3600) / 60, left % 60),
-                    color = Color.White, fontSize = 46.sp, fontWeight = FontWeight.ExtraBold)
-                Text("حتى ${next.name}", color = Palette.Muted, fontSize = 18.sp, modifier = Modifier.padding(bottom = 8.dp))
+                    color = Color.White, fontSize = 62.sp, fontWeight = FontWeight.ExtraBold)
+                Text("حتى ${next.name}", color = Palette.Muted, fontSize = 24.sp, modifier = Modifier.padding(bottom = 10.dp))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 today.forEach { p ->
@@ -174,12 +193,12 @@ fun PrayerCard(s: Settings, now: Date, modifier: Modifier = Modifier) {
                     Column(
                         Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
                             .background(if (isNext) Palette.Amber.copy(alpha = pulse) else Color(if (past) 0x14FFFFFF else 0x26FFFFFF))
-                            .padding(vertical = 6.dp),
+                            .padding(vertical = 10.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(p.name, color = if (isNext) Palette.AmberText else if (past) Palette.Muted else Color.White, fontSize = 16.sp)
+                        Text(p.name, color = if (isNext) Palette.AmberText else if (past) Palette.Muted else Color.White, fontSize = 20.sp)
                         Text(fmt.format(p.time), color = if (isNext) Palette.AmberText else if (past) Palette.Muted else Color.White,
-                            fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                            fontSize = 26.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

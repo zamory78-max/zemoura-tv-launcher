@@ -23,7 +23,7 @@ object WeatherRepository {
             val root = JSONObject(get(
                 "https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}" +
                     "&current=temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m,is_day" +
-                    "&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto"
+                    "&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=3&timezone=auto"
             ))
             val j = root.getJSONObject("current")
             val d = root.optJSONObject("daily")
@@ -35,9 +35,29 @@ object WeatherRepository {
                 humidity = j.optInt("relative_humidity_2m", 0),
                 windKmh = Math.round(j.optDouble("wind_speed_10m", 0.0)).toInt(),
                 maxC = d?.optJSONArray("temperature_2m_max")?.optDouble(0)?.let { Math.round(it).toInt() } ?: 0,
-                minC = d?.optJSONArray("temperature_2m_min")?.optDouble(0)?.let { Math.round(it).toInt() } ?: 0
+                minC = d?.optJSONArray("temperature_2m_min")?.optDouble(0)?.let { Math.round(it).toInt() } ?: 0,
+                days = forecast(d)
             )
         }.getOrNull()
+    }
+
+    private fun forecast(d: JSONObject?): List<DayForecast> {
+        if (d == null) return emptyList()
+        val times = d.optJSONArray("time") ?: return emptyList()
+        val codes = d.optJSONArray("weather_code")
+        val mx = d.optJSONArray("temperature_2m_max")
+        val mn = d.optJSONArray("temperature_2m_min")
+        val parse = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+        val dayName = java.text.SimpleDateFormat("EEEE", java.util.Locale("ar"))
+        return (0 until times.length()).map { i ->
+            val date = runCatching { parse.parse(times.getString(i)) }.getOrNull()
+            DayForecast(
+                label = if (i == 0) "اليوم" else if (i == 1) "غداً" else date?.let { dayName.format(it) } ?: "",
+                code = codes?.optInt(i, 0) ?: 0,
+                maxC = mx?.optDouble(i)?.let { Math.round(it).toInt() } ?: 0,
+                minC = mn?.optDouble(i)?.let { Math.round(it).toInt() } ?: 0
+            )
+        }
     }
 
     suspend fun searchCities(query: String, countryCode: String? = null): List<City> = withContext(Dispatchers.IO) {

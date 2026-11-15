@@ -34,6 +34,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import androidx.compose.ui.res.painterResource
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import com.tvlauncher.LauncherViewModel
 import com.tvlauncher.data.*
 import kotlinx.coroutines.delay
@@ -58,24 +61,37 @@ fun tileStyle(s: Settings): TileStyle {
 
 @Composable
 fun WallpaperBackground(value: String) {
+    val res = Wallpapers.resId(value)
     if (value.startsWith("uri:")) {
         AsyncImage(
             model = Uri.parse(value.removePrefix("uri:")), contentDescription = null,
             contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
         )
         Box(Modifier.fillMaxSize().background(Color(0x99000000)))
+    } else if (res != null) {
+        AsyncImage(model = res, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        Box(Modifier.fillMaxSize().background(Color(0x73000000)))
     } else {
         val i = value.removePrefix("preset:").toIntOrNull() ?: 0
         Box(Modifier.fillMaxSize().background(Wallpapers.presets[i.coerceIn(0, Wallpapers.presets.lastIndex)].second))
     }
 }
 
-/** خلفية موحّدة تحت كل الشاشات (الرئيسية والإعدادات والمجلدات). */
+/** خلفية موحّدة تحت كل الشاشات (الرئيسية والإعدادات والمجلدات)، مع تبديل تلقائي اختياري. */
 @Composable
 fun WallpaperHost(vm: LauncherViewModel, content: @Composable () -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
+    val rotation = remember(s.wallpaperSet) { s.wallpaperSet.toList().sorted() }
+    var idx by remember { mutableStateOf(0) }
+    LaunchedEffect(s.wallpaperAuto, s.wallpaperMinutes, rotation) {
+        if (s.wallpaperAuto && rotation.size > 1) while (true) {
+            delay(s.wallpaperMinutes.coerceAtLeast(1) * 60_000L)
+            idx = (idx + 1) % rotation.size
+        }
+    }
+    val current = if (s.wallpaperAuto && rotation.size > 1) rotation[idx % rotation.size] else s.wallpaper
     Box(Modifier.fillMaxSize()) {
-        WallpaperBackground(s.wallpaper)
+        Crossfade(current, animationSpec = tween(1200), label = "wallpaper") { WallpaperBackground(it) }
         content()
     }
 }
@@ -140,10 +156,7 @@ fun HomeScreen(
             if (s.showVideos) item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SectionTitle("المشاهدة")
-                    if (videos.isEmpty()) {
-                        Text("لا توجد فيديوهات بعد: أضف مفتاح YouTube وقنواتك من الإعدادات ← التطبيقات والفيديو.",
-                            color = Palette.Muted, fontSize = 18.sp)
-                    } else LazyRow(modifier = Modifier.focusRestorer(), horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
+                    if (videos.isNotEmpty()) LazyRow(modifier = Modifier.focusRestorer(), horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
                         items(videos, key = { it.id }) { v -> VideoCard(v) { VideoRepository.play(ctx, v) } }
                     }
                 }
@@ -284,16 +297,20 @@ private fun TopBar(
 ) {
     // الساعة تُحدَّث هنا فقط كي لا يُعاد رسم الصفوف كل ثانية (سبب التقطيع)
     val now by produceState(Date()) { while (true) { value = Date(); delay(1000) } }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column {
-            Text(SimpleDateFormat("HH:mm", Locale.US).format(now), color = Palette.Text, fontSize = 68.sp, fontWeight = FontWeight.ExtraBold)
-            Text(SimpleDateFormat("EEEE، d MMMM", LATIN_AR).format(now), color = Palette.Muted, fontSize = 20.sp)
-        }
-        WeatherCard(weather, s.city.name)
-        PrayerCard(s, now, Modifier.weight(1f).widthIn(min = 520.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
+            Image(painterResource(com.tvlauncher.R.drawable.logo), "زمورة", Modifier.size(84.dp).clip(RoundedCornerShape(20.dp)))
+            Column {
+                Text("Zemoura Launcher", color = Palette.Amber, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(SimpleDateFormat("HH:mm", Locale.US).format(now), color = Palette.Text, fontSize = 68.sp, fontWeight = FontWeight.ExtraBold)
+            }
+            Text(SimpleDateFormat("EEEE، d MMMM", LATIN_AR).format(now), color = Palette.Muted, fontSize = 24.sp, modifier = Modifier.weight(1f))
             PillButton(if (editMode) "تم التعديل" else "تعديل", primary = editMode, onClick = onEdit)
             PillButton("الإعدادات", onClick = onSettings)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.Top) {
+            WeatherCard(weather, s.city.name, Modifier.weight(0.85f))
+            PrayerCard(s, now, Modifier.weight(1.15f))
         }
     }
 }

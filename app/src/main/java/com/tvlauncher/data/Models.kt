@@ -99,5 +99,8 @@ data class WeatherInfo(
     val humidity: Int = 0,
     val windKmh: Int = 0,
     val maxC: Int = 0,
-    val minC: Int = 0
+    val minC: Int = 0,
+    val days: List<DayForecast> = emptyList()
 )
+
+data class DayForecast(val label: String, val code: Int, val maxC: Int, val minC: Int)
