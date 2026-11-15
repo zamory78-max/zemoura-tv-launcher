@@ -21,11 +21,15 @@ data class Settings(
     val protectSettings: Boolean = true,
     val autoStart: Boolean = true,
     val city: City = City.DEFAULT,
-    val method: String = "MUSLIM_WORLD_LEAGUE",
+    val method: String = "ALGERIA",
     val madhab: String = "SHAFI",
     val iqamaMinutes: Int = 10,
     val adhanEnabled: Boolean = true,
     val adhanSound: Boolean = true,
+    val tileScale: Int = 1,                       // 0 صغير، 1 متوسط، 2 كبير
+    val tileShape: String = "banner",            // banner | rounded | square | circle
+    val videoApps: Set<String> = emptySet(),      // تطبيقات صف المشاهدة
+    val pipedInstance: String = "https://pipedapi.kavin.rocks",
     val appOrder: List<String> = emptyList(),     // ترتيب التطبيقات (أسماء الحزم)
     val folders: List<Folder> = emptyList()
 )
@@ -51,6 +55,10 @@ class Prefs(private val context: Context) {
         val adhanSound = booleanPreferencesKey("adhan_sound")
         val folders = stringPreferencesKey("folders")
         val appOrder = stringPreferencesKey("app_order")
+        val tileScale = intPreferencesKey("tile_scale")
+        val tileShape = stringPreferencesKey("tile_shape")
+        val videoApps = stringSetPreferencesKey("video_apps")
+        val piped = stringPreferencesKey("piped")
     }
 
     val flow: Flow<Settings> = context.store.data.map { p ->
@@ -73,6 +81,10 @@ class Prefs(private val context: Context) {
             iqamaMinutes = p[K.iqama] ?: d.iqamaMinutes,
             adhanEnabled = p[K.adhan] ?: d.adhanEnabled,
             adhanSound = p[K.adhanSound] ?: d.adhanSound,
+            tileScale = p[K.tileScale] ?: d.tileScale,
+            tileShape = p[K.tileShape] ?: d.tileShape,
+            videoApps = p[K.videoApps] ?: d.videoApps,
+            pipedInstance = p[K.piped] ?: d.pipedInstance,
             appOrder = (p[K.appOrder] ?: "").split("\n").filter { it.isNotEmpty() },
             folders = foldersFromJson(p[K.folders])
         )
@@ -94,6 +106,10 @@ class Prefs(private val context: Context) {
     suspend fun setIqama(v: Int) = edit { it[K.iqama] = v }
     suspend fun setAdhan(v: Boolean) = edit { it[K.adhan] = v }
     suspend fun setAdhanSound(v: Boolean) = edit { it[K.adhanSound] = v }
+    suspend fun setTileScale(v: Int) = edit { it[K.tileScale] = v }
+    suspend fun setTileShape(v: String) = edit { it[K.tileShape] = v }
+    suspend fun setVideoApps(v: Set<String>) = edit { it[K.videoApps] = v }
+    suspend fun setPiped(v: String) = edit { it[K.piped] = v }
     suspend fun setAppOrder(v: List<String>) = edit { it[K.appOrder] = v.joinToString("\n") }
     suspend fun setFolders(v: List<Folder>) = edit { it[K.folders] = foldersToJson(v) }
 

@@ -19,9 +19,41 @@ object VideoRepository {
 
     const val YOUTUBE_PACKAGE_TV = "com.google.android.youtube.tv"
 
-    suspend fun trending(key: String, region: String): List<Video> = withContext(Dispatchers.IO) {
+    /** الرسمي (بمفتاح) إن وُجد، وإلا مصدر Piped المفتوح بلا مفتاح (غير رسمي وقد يتعطل). */
+    suspend fun trending(key: String, region: String, piped: String): List<Video> {
         val k = key.ifBlank { BuildConfig.YOUTUBE_API_KEY }
-        if (k.isBlank()) return@withContext emptyList()
+        val official = if (k.isNotBlank()) official(k, region) else emptyList()
+        return official.ifEmpty { pipedTrending(piped, region) }
+    }
+
+    private suspend fun pipedTrending(base: String, region: String): List<Video> = withContext(Dispatchers.IO) {
+        if (!base.startsWith("https://")) return@withContext emptyList()
+        runCatching {
+            val c = URL(base.trimEnd('/') + "/trending?region=$region").openConnection() as HttpURLConnection
+            c.connectTimeout = 10_000; c.readTimeout = 10_000
+            val body = try { c.inputStream.bufferedReader().readText() } finally { c.disconnect() }
+            val arr = org.json.JSONArray(body)
+            (0 until minOf(arr.length(), 12)).mapNotNull {
+                val o = arr.getJSONObject(it)
+                val id = o.optString("url").substringAfter("v=", "")
+                if (id.isEmpty()) null else Video(
+                    id = id,
+                    title = o.optString("title"),
+                    channel = o.optString("uploaderName"),
+                    thumb = o.optString("thumbnail"),
+                    duration = fmtSeconds(o.optLong("duration", 0))
+                )
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun fmtSeconds(s: Long): String {
+        if (s <= 0) return ""
+        val h = s / 3600; val m = (s % 3600) / 60; val sec = s % 60
+        return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
+    }
+
+    private suspend fun official(k: String, region: String): List<Video> = withContext(Dispatchers.IO) {
         runCatching {
             val url = "https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails" +
                 "&chart=mostPopular&maxResults=10&regionCode=$region&key=$k"

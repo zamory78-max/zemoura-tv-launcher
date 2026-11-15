@@ -18,11 +18,23 @@ object WeatherRepository {
 
     suspend fun current(city: City): WeatherInfo? = withContext(Dispatchers.IO) {
         runCatching {
-            val j = JSONObject(get(
+            val root = JSONObject(get(
                 "https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}" +
-                    "&current=temperature_2m,weather_code&timezone=auto"
-            )).getJSONObject("current")
-            WeatherInfo(Math.round(j.getDouble("temperature_2m")).toInt(), describe(j.getInt("weather_code")))
+                    "&current=temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m,is_day" +
+                    "&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto"
+            ))
+            val j = root.getJSONObject("current")
+            val d = root.optJSONObject("daily")
+            WeatherInfo(
+                tempC = Math.round(j.getDouble("temperature_2m")).toInt(),
+                description = describe(j.getInt("weather_code")),
+                code = j.getInt("weather_code"),
+                isDay = j.optInt("is_day", 1) == 1,
+                humidity = j.optInt("relative_humidity_2m", 0),
+                windKmh = Math.round(j.optDouble("wind_speed_10m", 0.0)).toInt(),
+                maxC = d?.optJSONArray("temperature_2m_max")?.optDouble(0)?.let { Math.round(it).toInt() } ?: 0,
+                minC = d?.optJSONArray("temperature_2m_min")?.optDouble(0)?.let { Math.round(it).toInt() } ?: 0
+            )
         }.getOrNull()
     }
 

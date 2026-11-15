@@ -52,10 +52,6 @@ fun FolderScreen(vm: LauncherViewModel, folderId: String, onBack: () -> Unit, gu
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
             PillButton("رجوع", onClick = onBack)
             Text(folder.name, color = Palette.Text, fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-            PillButton(if (folder.locked) "إلغاء قفل المجلد" else "قفل المجلد", primary = true) {
-                if (!vm.hasPin) info = "عيّن رمزاً سرياً من الإعدادات أولاً."
-                else guard("تأكيد الرمز") { vm.mutateFolder(folderId) { it.copy(locked = !it.locked) } }
-            }
             PillButton("إضافة تطبيق") { pickApp = true }
             PillButton("إضافة ملف") { pickFile.launch(arrayOf("*/*")) }
         }

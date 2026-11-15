@@ -143,3 +143,25 @@ fun MessageDialog(title: String, message: String, onDismiss: () -> Unit) {
         PillButton("حسناً", primary = true) { onDismiss() }
     }
 }
+
+/** قائمة بعناصر يمكن تفعيلها/إلغاؤها (قفل التطبيقات والمجلدات، تطبيقات المشاهدة). تبقى مفتوحة أثناء التبديل. */
+@Composable
+fun MultiToggleDialog(
+    title: String, entries: List<Triple<String, String, Boolean>>,
+    onToggle: (String) -> Unit, onDismiss: () -> Unit
+) {
+    DialogFrame(title, onDismiss) {
+        if (entries.isEmpty()) Text("لا توجد عناصر.", color = Palette.Muted, fontSize = 20.sp)
+        LazyColumn(Modifier.heightIn(max = 460.dp).widthIn(min = 460.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(entries, key = { it.first }) { (id, label, on) ->
+                Focusable(onClick = { onToggle(id) }, modifier = Modifier.fillMaxWidth(), bg = if (on) Palette.Teal else Palette.Card) {
+                    Row(Modifier.padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(label, color = Palette.Text, fontSize = 22.sp, modifier = Modifier.weight(1f))
+                        Text(if (on) "✓" else "", color = Palette.Text, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+                    }
+                }
+            }
+        }
+        PillButton("تم", primary = true) { onDismiss() }
+    }
+}

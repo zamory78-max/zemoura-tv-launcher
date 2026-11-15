@@ -43,10 +43,11 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         }
         // الفيديوهات: تحديث عند تغيّر المفتاح/البلد/التفعيل
         viewModelScope.launch {
-            settings.map { Triple(it.showVideos, it.youtubeKey, it.videoRegion) }.distinctUntilChanged()
-                .collectLatest { (on, key, region) ->
+            settings.map { listOf(it.showVideos, it.youtubeKey, it.videoRegion, it.pipedInstance) }.distinctUntilChanged()
+                .collectLatest { v ->
+                    val on = v[0] as Boolean; val key = v[1] as String; val region = v[2] as String; val piped = v[3] as String
                     while (true) {
-                        _videos.value = if (on) VideoRepository.trending(key, region) else emptyList()
+                        _videos.value = if (on) VideoRepository.trending(key, region, piped) else emptyList()
                         delay(60 * 60_000L)
                     }
                 }

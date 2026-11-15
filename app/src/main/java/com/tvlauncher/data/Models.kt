@@ -72,4 +72,13 @@ data class Video(
     val duration: String
 )
 
-data class WeatherInfo(val tempC: Int, val description: String)
+data class WeatherInfo(
+    val tempC: Int,
+    val description: String,
+    val code: Int = 0,
+    val isDay: Boolean = true,
+    val humidity: Int = 0,
+    val windKmh: Int = 0,
+    val maxC: Int = 0,
+    val minC: Int = 0
+)

@@ -1,6 +1,7 @@
 package com.tvlauncher.data
 
 import com.batoulapps.adhan.CalculationMethod
+import com.batoulapps.adhan.CalculationParameters
 import com.batoulapps.adhan.Coordinates
 import com.batoulapps.adhan.Madhab
 import com.batoulapps.adhan.Prayer
@@ -16,6 +17,7 @@ object PrayerRepository {
 
     /** طرق الحساب المتاحة (الاسم المعروض). */
     val methods: List<Pair<String, String>> = listOf(
+        "ALGERIA" to "الجزائر — وزارة الشؤون الدينية والأوقاف",
         "MUSLIM_WORLD_LEAGUE" to "رابطة العالم الإسلامي",
         "EGYPTIAN" to "الهيئة المصرية العامة للمساحة",
         "KARACHI" to "جامعة العلوم الإسلامية، كراتشي",
@@ -31,10 +33,17 @@ object PrayerRepository {
 
     fun methodName(key: String) = methods.firstOrNull { it.first == key }?.second ?: key
 
-    private fun params(s: Settings) = runCatching { CalculationMethod.valueOf(s.method) }
-        .getOrDefault(CalculationMethod.MUSLIM_WORLD_LEAGUE).parameters.also {
-            it.madhab = if (s.madhab == "HANAFI") Madhab.HANAFI else Madhab.SHAFI
+    private fun params(s: Settings): CalculationParameters {
+        val p = if (s.method == "ALGERIA") {
+            // المعتمد رسمياً في الجزائر: الفجر 18° والعشاء 17° والعصر بالمثل (جمهور)
+            CalculationMethod.OTHER.parameters.also { it.fajrAngle = 18.0; it.ishaAngle = 17.0 }
+        } else {
+            runCatching { CalculationMethod.valueOf(s.method) }
+                .getOrDefault(CalculationMethod.MUSLIM_WORLD_LEAGUE).parameters
         }
+        p.madhab = if (s.madhab == "HANAFI") Madhab.HANAFI else Madhab.SHAFI
+        return p
+    }
 
     /** أوقات يوم معيّن بحسب المنطقة الزمنية للمدينة. */
     fun forDay(s: Settings, dayOffset: Int = 0, now: Date = Date()): PrayerTimes {
@@ -52,6 +61,13 @@ object PrayerRepository {
         PrayerEntry(Prayer.MAGHRIB, "المغرب", t.maghrib),
         PrayerEntry(Prayer.ISHA, "العشاء", t.isha)
     )
+
+    /** (السابقة، القادمة) حول اللحظة الحالية، لحساب تقدّم الحلقة. */
+    fun window(s: Settings, now: Date = Date()): Pair<PrayerEntry, PrayerEntry> {
+        val all = list(forDay(s, -1, now)) + list(forDay(s, 0, now)) + list(forDay(s, 1, now))
+        val i = all.indexOfFirst { it.time.after(now) }.coerceAtLeast(1)
+        return all[i - 1] to all[i]
+    }
 
     /** الصلاة القادمة (قد تكون فجر الغد). */
     fun next(s: Settings, now: Date = Date()): PrayerEntry {

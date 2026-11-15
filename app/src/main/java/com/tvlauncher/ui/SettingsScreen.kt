@@ -54,6 +54,7 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val s by vm.settings.collectAsStateWithLifecycle()
+    val apps by vm.apps.collectAsStateWithLifecycle()
 
     var dialog by remember { mutableStateOf("") }
     var cityResults by remember { mutableStateOf<List<City>>(emptyList()) }
@@ -88,11 +89,28 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
                 if (vm.hasPin) guard("أدخل الرمز الحالي") { dialog = "pin" } else dialog = "pin"
             }
         }
-        item { RowItem("التطبيقات المقفلة", "اضغط مطولاً على أي تطبيق في الشاشة الرئيسية لقفله", "${s.lockedApps.size}") {} }
+        item {
+            RowItem("قفل التطبيقات", "اختر التطبيقات التي تُطلب لها الرمز قبل التشغيل", "${s.lockedApps.size}") {
+                if (!vm.hasPin) msg = "عيّن رمزاً سرياً أولاً." else dialog = "lockApps"
+            }
+        }
+        item {
+            RowItem("قفل المجلدات", "اختر المجلدات التي تُطلب لها الرمز قبل الفتح", "${s.folders.count { it.locked }}") {
+                if (!vm.hasPin) msg = "عيّن رمزاً سرياً أولاً." else dialog = "lockFolders"
+            }
+        }
         item {
             RowItem("إظهار التطبيقات المخفية", "يعيد إظهار كل ما أخفيته", "${s.hiddenApps.size}") {
                 guard("تأكيد الرمز") { vm.update { setHiddenApps(emptySet()) } }
             }
+        }
+
+        item { Section("المظهر") }
+        item {
+            RowItem("حجم الأيقونات", null, listOf("صغير", "متوسط", "كبير")[s.tileScale.coerceIn(0, 2)]) { dialog = "tileScale" }
+        }
+        item {
+            RowItem("شكل الأيقونات", null, shapeName(s.tileShape)) { dialog = "tileShape" }
         }
 
         item { Section("التطبيقات والفيديو") }
@@ -100,9 +118,16 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
             ToggleItem("إظهار التطبيقات غير المدعومة", "التطبيقات المصممة للهاتف وبلا واجهة تلفاز؛ تظهر في صف منفصل بوسم «غير مدعوم»",
                 s.showUnsupported) { v -> vm.update { setShowUnsupported(v) } }
         }
-        item { ToggleItem("صف فيديوهات يوتيوب", null, s.showVideos) { v -> vm.update { setShowVideos(v) } } }
+        item { ToggleItem("صف المشاهدة", "يعرض تطبيقات المشاهدة التي تختارها وفيديوهات يوتيوب", s.showVideos) { v -> vm.update { setShowVideos(v) } } }
         item {
-            RowItem("مفتاح YouTube Data API", "مطلوب لجلب الفيديوهات", if (s.youtubeKey.isBlank()) "غير مضبوط" else "مضبوط") { dialog = "ytkey" }
+            RowItem("تطبيقات صف المشاهدة", "مثل يوتيوب ونتفليكس وشاهد؛ تظهر كبطاقات تفتح التطبيق مباشرة", "${s.videoApps.size}") { dialog = "videoApps" }
+        }
+        item {
+            RowItem("مفتاح YouTube Data API (اختياري)", "المفتاح يجلب الفيديوهات رسمياً من جوجل. بدونه تُجلب من مصدر Piped المفتوح (غير رسمي)",
+                if (s.youtubeKey.isBlank()) "غير مضبوط" else "مضبوط") { dialog = "ytkey" }
+        }
+        item {
+            RowItem("خادم Piped (بلا مفتاح)", "غيّره إن توقف الخادم الافتراضي", s.pipedInstance.removePrefix("https://")) { dialog = "piped" }
         }
         item { RowItem("بلد الفيديوهات", "رمز من حرفين مثل DZ أو SA أو FR", s.videoRegion) { dialog = "region" } }
 
@@ -157,6 +182,20 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
 
     when (dialog) {
         "pin" -> PinSetup(onDone = { vm.setPin(it); dialog = ""; msg = "تم حفظ الرمز السري." }, onDismiss = { dialog = "" })
+        "tileScale" -> ChoiceDialog("حجم الأيقونات", listOf(0 to "صغير", 1 to "متوسط", 2 to "كبير"),
+            onPick = { v -> vm.update { setTileScale(v) }; dialog = "" }, onDismiss = { dialog = "" })
+        "tileShape" -> ChoiceDialog("شكل الأيقونات", listOf("banner", "rounded", "square", "circle").map { it to shapeName(it) },
+            onPick = { v -> vm.update { setTileShape(v) }; dialog = "" }, onDismiss = { dialog = "" })
+        "lockApps" -> MultiToggleDialog("التطبيقات المقفلة", apps.map { Triple(it.pkg, it.label, it.pkg in s.lockedApps) },
+            onToggle = { pkg -> vm.toggleAppLock(pkg) }, onDismiss = { dialog = "" })
+        "lockFolders" -> MultiToggleDialog("المجلدات المقفلة", s.folders.map { Triple(it.id, it.name, it.locked) },
+            onToggle = { id -> vm.mutateFolder(id) { f -> f.copy(locked = !f.locked) } }, onDismiss = { dialog = "" })
+        "videoApps" -> MultiToggleDialog("تطبيقات صف المشاهدة", apps.map { Triple(it.pkg, it.label, it.pkg in s.videoApps) },
+            onToggle = { pkg -> vm.update { setVideoApps(if (pkg in s.videoApps) s.videoApps - pkg else s.videoApps + pkg) } },
+            onDismiss = { dialog = "" })
+        "piped" -> TextInputDialog("عنوان خادم Piped", s.pipedInstance, hint = "https://...", onOk = { v ->
+            if (v.startsWith("https://")) vm.update { setPiped(v.trimEnd('/')) }; dialog = ""
+        }, onDismiss = { dialog = "" })
         "ytkey" -> TextInputDialog("مفتاح YouTube API", s.youtubeKey, onOk = { v -> vm.update { setYoutubeKey(v) }; dialog = "" }, onDismiss = { dialog = "" })
         "region" -> TextInputDialog("رمز البلد", s.videoRegion, onOk = { v ->
             if (v.length == 2) vm.update { setVideoRegion(v.uppercase()) }; dialog = ""
@@ -189,4 +228,11 @@ private fun requestHomeRole(ctx: Context, launch: (Intent) -> Unit) {
         .onFailure {
             ctx.startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
+}
+
+private fun shapeName(k: String) = when (k) {
+    "rounded" -> "مربع بحواف مدورة"
+    "square" -> "مربع"
+    "circle" -> "دائرة"
+    else -> "مستطيل (بنر)"
 }

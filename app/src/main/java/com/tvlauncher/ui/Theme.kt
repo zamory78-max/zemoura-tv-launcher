@@ -1,9 +1,11 @@
 package com.tvlauncher.ui
 
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.key.*
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.core.animateFloatAsState
@@ -57,8 +59,13 @@ fun LauncherTheme(content: @Composable () -> Unit) {
     }
 }
 
-/** عنصر قابل للتركيز بالريموت: حلقة كهرمانية وتكبير عند التركيز. */
-@OptIn(ExperimentalFoundationApi::class)
+private class KeyState { var down = false; var long = false }
+
+/**
+ * عنصر قابل للتركيز بالريموت: حلقة كهرمانية وتكبير عند التركيز.
+ * - OK: نقر. OK مطوّلاً أو زر القائمة (Menu): ضغطة مطوّلة (onLongClick).
+ * - اللمس/الماوس: نقر وضغطة مطوّلة.
+ */
 @Composable
 fun Focusable(
     onClick: () -> Unit,
@@ -69,6 +76,9 @@ fun Focusable(
     content: @Composable BoxScope.() -> Unit
 ) {
     var focused by remember { mutableStateOf(false) }
+    val st = remember { KeyState() }
+    val click by rememberUpdatedState(onClick)
+    val long by rememberUpdatedState(onLongClick)
     val scale by animateFloatAsState(if (focused) 1.06f else 1f, label = "focusScale")
     Box(
         modifier
@@ -77,7 +87,27 @@ fun Focusable(
             .background(bg)
             .border(if (focused) 4.dp else 0.dp, Palette.Amber, shape)
             .onFocusChanged { focused = it.isFocused }
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+            .onKeyEvent { e ->
+                val ok = e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter
+                if (ok) {
+                    if (e.type == KeyEventType.KeyDown) {
+                        if (e.nativeKeyEvent.repeatCount == 0) { st.down = true; st.long = false }
+                        else if (st.down && !st.long && long != null) { st.long = true; long?.invoke() }
+                    } else if (e.type == KeyEventType.KeyUp) {
+                        val fire = st.down && !st.long
+                        st.down = false; st.long = false
+                        if (fire) click()
+                    }
+                    true
+                } else if (e.key == Key.Menu && long != null) {
+                    if (e.type == KeyEventType.KeyUp) long?.invoke()
+                    true
+                } else false
+            }
+            .focusable()
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = { click() }, onLongPress = { long?.invoke() })
+            },
         content = content
     )
 }
