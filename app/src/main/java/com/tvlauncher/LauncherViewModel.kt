@@ -59,7 +59,11 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun refreshApps() = viewModelScope.launch { _apps.value = AppRepository.load(getApplication()) }
+    fun refreshApps() = viewModelScope.launch {
+        val fresh = AppRepository.load(getApplication())
+        // لا نُعيد رسم الشاشة إن لم تتغير قائمة التطبيقات (يمنع التقطيع عند كل عودة)
+        if (fresh.map { it.pkg to it.label } != _apps.value.map { it.pkg to it.label }) _apps.value = fresh
+    }
 
     // ---------- الرمز السري ----------
     val hasPin get() = settings.value.pinHash.isNotEmpty()

@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -79,6 +80,7 @@ fun WallpaperHost(vm: LauncherViewModel, content: @Composable () -> Unit) {
     }
 }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun HomeScreen(
     vm: LauncherViewModel,
@@ -141,7 +143,7 @@ fun HomeScreen(
                     if (videos.isEmpty()) {
                         Text("لا توجد فيديوهات بعد: أضف مفتاح YouTube وقنواتك من الإعدادات ← التطبيقات والفيديو.",
                             color = Palette.Muted, fontSize = 18.sp)
-                    } else LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
+                    } else LazyRow(modifier = Modifier.focusRestorer(), horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
                         items(videos, key = { it.id }) { v -> VideoCard(v) { VideoRepository.play(ctx, v) } }
                     }
                 }
@@ -149,13 +151,14 @@ fun HomeScreen(
             // تطبيقات المشاهدة في الأسفل، تاركةً مكان الفيديوهات لها
             if (s.showVideos) item {
                 AppsRow("تطبيقات المشاهدة", videoApps, s, style, rtl, moving, vm::moveApp, { moving = null },
-                    onClick = onAppClick, onLong = { menuFor = it }, onAdd = { pickWatch = true })
+                    onClick = onAppClick, onLong = { menuFor = it }, onAdd = { pickWatch = true },
+                    initialFocus = videoApps.isNotEmpty())
             }
 
             item {
                 AppsRow("التطبيقات", supported, s, style, rtl, moving, vm::moveApp, { moving = null },
                     onClick = onAppClick, onLong = { menuFor = it },
-                    onAdd = { pickMain = true })
+                    onAdd = { pickMain = true }, initialFocus = !(s.showVideos && videoApps.isNotEmpty()))
             }
             items(s.rows, key = { "row:" + it.id }) { row ->
                 AppsRow(row.name, visible.filter { it.pkg in row.pkgs }, s, style, rtl, moving, vm::moveApp, { moving = null },
@@ -166,7 +169,7 @@ fun HomeScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SectionTitle("المجلدات")
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
+                    LazyRow(modifier = Modifier.focusRestorer(), horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
                         items(s.folders, key = { it.id }) { f ->
                             val isMoving = moving == "folder:${f.id}"
                             val fr = remember { FocusRequester() }
@@ -295,22 +298,32 @@ private fun TopBar(
     }
 }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun AppsRow(
     title: String, list: List<AppEntry>, s: Settings, style: TileStyle, rtl: Boolean,
     moving: String?, onMove: (List<String>, String, Int) -> Unit, onDone: () -> Unit,
     onClick: (AppEntry) -> Unit, onLong: (AppEntry) -> Unit,
-    onAdd: (() -> Unit)? = null, onManage: (() -> Unit)? = null, onNewRow: (() -> Unit)? = null
+    onAdd: (() -> Unit)? = null, onManage: (() -> Unit)? = null, onNewRow: (() -> Unit)? = null,
+    initialFocus: Boolean = false
 ) {
     val rowPkgs = list.map { it.pkg }
+    val frs = remember { mutableMapOf<String, FocusRequester>() }
+    // عند الإقلاع: التركيز على أول تطبيق (لا على زر الإضافة)
+    LaunchedEffect(initialFocus, list.isNotEmpty()) {
+        if (initialFocus && list.isNotEmpty()) {
+            withFrameNanos { }; withFrameNanos { }
+            runCatching { frs.getOrPut(list.first().pkg) { FocusRequester() }.requestFocus() }
+        }
+    }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
             SectionTitle(title)
         }
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
+        LazyRow(modifier = Modifier.focusRestorer(), horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
             items(list, key = { it.pkg }) { app ->
                 val isMoving = moving == "app:${app.pkg}"
-                val fr = remember { FocusRequester() }
+                val fr = frs.getOrPut(app.pkg) { FocusRequester() }
                 LaunchedEffect(isMoving, rowPkgs.indexOf(app.pkg)) { if (isMoving) runCatching { fr.requestFocus() } }
                 Column(Modifier.width(maxOf(style.w, 110.dp)), verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Focusable(
