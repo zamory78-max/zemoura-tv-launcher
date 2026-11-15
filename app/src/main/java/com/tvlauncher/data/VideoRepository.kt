@@ -19,6 +19,33 @@ object VideoRepository {
 
     const val YOUTUBE_PACKAGE_TV = "com.google.android.youtube.tv"
 
+    /** المصدر المخصص أولاً (إن ضُبط)، ثم يوتيوب. */
+    suspend fun all(key: String, region: String, piped: String, feed: String): List<Video> =
+        customFeed(feed) + trending(key, region, piped)
+
+    /**
+     * مصدر مخصص: رابط JSON يعيد قائمة (أو {"items":[...]}) عناصرها:
+     * {"title":"..","channel":"..","thumb":"https://..","link":"https://.. أو zemoura://..","duration":"12:30"}
+     */
+    private suspend fun customFeed(url: String): List<Video> = withContext(Dispatchers.IO) {
+        if (!url.startsWith("https://")) return@withContext emptyList()
+        runCatching {
+            val c = URL(url).openConnection() as HttpURLConnection
+            c.connectTimeout = 10_000; c.readTimeout = 10_000
+            val body = try { c.inputStream.bufferedReader().readText() } finally { c.disconnect() }
+            val arr = if (body.trimStart().startsWith("[")) org.json.JSONArray(body)
+                      else JSONObject(body).getJSONArray("items")
+            (0 until minOf(arr.length(), 20)).mapNotNull {
+                val o = arr.getJSONObject(it)
+                val link = o.optString("link")
+                if (link.isEmpty()) null else Video(
+                    id = link, title = o.optString("title"), channel = o.optString("channel"),
+                    thumb = o.optString("thumb"), duration = o.optString("duration"), link = link
+                )
+            }
+        }.getOrDefault(emptyList())
+    }
+
     /** الرسمي (بمفتاح) إن وُجد، وإلا مصدر Piped المفتوح بلا مفتاح (غير رسمي وقد يتعطل). */
     suspend fun trending(key: String, region: String, piped: String): List<Video> {
         val k = key.ifBlank { BuildConfig.YOUTUBE_API_KEY }
@@ -84,6 +111,10 @@ object VideoRepository {
     }.getOrDefault("")
 
     fun play(context: Context, v: Video) {
+        if (v.link.isNotEmpty()) {
+            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(v.link)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            return
+        }
         val uri = Uri.parse("https://www.youtube.com/watch?v=${v.id}")
         val tv = Intent(Intent.ACTION_VIEW, uri).setPackage(YOUTUBE_PACKAGE_TV).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val any = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

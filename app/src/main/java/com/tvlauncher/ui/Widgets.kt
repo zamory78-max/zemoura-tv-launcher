@@ -59,10 +59,10 @@ fun WeatherCard(w: WeatherInfo?, city: String, modifier: Modifier = Modifier) {
                 Text(w?.let { "${it.tempC}°" } ?: "--°", color = Color.White, fontSize = 54.sp, fontWeight = FontWeight.ExtraBold)
             }
             Text(w?.description ?: "جارٍ التحديث…", color = Color(0xFFE6EEF9), fontSize = 18.sp)
-            if (w != null) Text(
-                "↑${w.maxC}°  ↓${w.minC}°  ·  رطوبة ${w.humidity}%  ·  رياح ${w.windKmh} كم/س",
-                color = Color(0xFFE6EEF9), fontSize = 15.sp
-            )
+            if (w != null) {
+                Text("↑${w.maxC}°  ↓${w.minC}°", color = Color(0xFFE6EEF9), fontSize = 16.sp)
+                Text("رطوبة ${w.humidity}%  ·  رياح ${w.windKmh} كم/س", color = Color(0xFFE6EEF9), fontSize = 14.sp)
+            }
         }
     }
 }
@@ -145,7 +145,7 @@ fun PrayerCard(s: Settings, now: Date, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.CenterVertically
     ) {
         // حلقة التقدّم نحو الصلاة القادمة
-        Box(Modifier.size(128.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(112.dp), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
                 val stroke = 11.dp.toPx()
                 val inset = stroke / 2

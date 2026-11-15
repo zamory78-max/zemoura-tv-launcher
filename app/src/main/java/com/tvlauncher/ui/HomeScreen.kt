@@ -95,6 +95,7 @@ fun HomeScreen(
     var newFolder by remember { mutableStateOf(false) }
     var moving by remember { mutableStateOf<String?>(null) }   // "app:<pkg>" أو "folder:<id>"
     var folderMenu by remember { mutableStateOf<Folder?>(null) }
+    var pickWatch by remember { mutableStateOf(false) }
     var editMode by remember { mutableStateOf(false) }          // في وضع التعديل: OK على أي عنصر يفتح قائمته
     var info by remember { mutableStateOf<Pair<String, String>?>(null) }
 
@@ -129,12 +130,17 @@ fun HomeScreen(
             if (s.showVideos) item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SectionTitle("المشاهدة")
-                    if (videos.isEmpty() && videoApps.isEmpty()) {
-                        Text("اختر تطبيقات المشاهدة من الإعدادات ← التطبيقات والفيديو. وتظهر فيديوهات يوتيوب هنا عند توفر الإنترنت.",
-                            color = Palette.Muted, fontSize = 18.sp)
-                    } else LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
                         items(videoApps, key = { "va:" + it.pkg }) { app -> VideoAppCard(app) { launch(app) } }
                         items(videos, key = { it.id }) { v -> VideoCard(v) { VideoRepository.play(ctx, v) } }
+                        item {
+                            Focusable(onClick = { pickWatch = true }, modifier = Modifier.size(300.dp, 169.dp)) {
+                                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("+", color = Palette.Amber, fontSize = 56.sp, fontWeight = FontWeight.ExtraBold)
+                                    Text("إضافة تطبيق مشاهدة", color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -218,6 +224,9 @@ fun HomeScreen(
     if (newFolder) TextInputDialog("اسم المجلد", hint = "مثال: الأطفال", onOk = {
         if (it.isNotBlank()) vm.addFolder(it); newFolder = false
     }, onDismiss = { newFolder = false })
+    if (pickWatch) MultiToggleDialog("تطبيقات صف المشاهدة", ordered.map { Triple(it.pkg, it.label, it.pkg in s.videoApps) },
+        onToggle = { pkg -> vm.update { setVideoApps(if (pkg in s.videoApps) s.videoApps - pkg else s.videoApps + pkg) } },
+        onDismiss = { pickWatch = false })
     info?.let { MessageDialog(it.first, it.second) { info = null } }
 }
 
@@ -232,7 +241,7 @@ private fun TopBar(
             Text(SimpleDateFormat("EEEE، d MMMM", LATIN_AR).format(now), color = Palette.Muted, fontSize = 20.sp)
         }
         WeatherCard(weather, s.city.name)
-        PrayerCard(s, now, Modifier.weight(1f))
+        PrayerCard(s, now, Modifier.weight(1f).widthIn(min = 520.dp))
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             PillButton(if (editMode) "تم التعديل" else "تعديل", primary = editMode, onClick = onEdit)
             PillButton("الإعدادات", onClick = onSettings)

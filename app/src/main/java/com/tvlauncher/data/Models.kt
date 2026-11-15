@@ -69,7 +69,8 @@ data class Video(
     val title: String,
     val channel: String,
     val thumb: String,
-    val duration: String
+    val duration: String,
+    val link: String = ""      // رابط مخصص (للمصدر الخاص) يُفتح عند الضغط
 )
 
 data class WeatherInfo(

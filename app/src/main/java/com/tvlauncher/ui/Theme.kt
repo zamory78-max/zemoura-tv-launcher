@@ -21,7 +21,10 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -51,7 +54,13 @@ object Wallpapers {
 
 @Composable
 fun LauncherTheme(content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+    // تصميم الواجهة مبني على عرض 1600dp؛ نُكبّره/نصغّره ليملأ أي شاشة (720p/1080p/4K) بنفس المظهر
+    val widthPx = LocalContext.current.resources.displayMetrics.widthPixels
+    val scaled = Density(density = widthPx / 1600f, fontScale = 1f)
+    CompositionLocalProvider(
+        LocalLayoutDirection provides LayoutDirection.Rtl,
+        LocalDensity provides scaled
+    ) {
         MaterialTheme(
             colorScheme = darkColorScheme(primary = Palette.Amber, background = Palette.Night, surface = Palette.Surface),
             content = content

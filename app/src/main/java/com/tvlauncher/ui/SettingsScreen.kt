@@ -129,6 +129,10 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
         item {
             RowItem("خادم Piped (بلا مفتاح)", "غيّره إن توقف الخادم الافتراضي", s.pipedInstance.removePrefix("https://")) { dialog = "piped" }
         }
+        item {
+            RowItem("مصدر فيديو مخصص (رابط JSON)", "لعرض فيديوهات تطبيقك أنت (مثل Zemoura TV) داخل الصف؛ الصيغة في README",
+                if (s.feedUrl.isBlank()) "غير مضبوط" else "مضبوط") { dialog = "feed" }
+        }
         item { RowItem("بلد الفيديوهات", "رمز من حرفين مثل DZ أو SA أو FR", s.videoRegion) { dialog = "region" } }
 
         item { Section("الخلفية") }
@@ -193,6 +197,9 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
         "videoApps" -> MultiToggleDialog("تطبيقات صف المشاهدة", apps.map { Triple(it.pkg, it.label, it.pkg in s.videoApps) },
             onToggle = { pkg -> vm.update { setVideoApps(if (pkg in s.videoApps) s.videoApps - pkg else s.videoApps + pkg) } },
             onDismiss = { dialog = "" })
+        "feed" -> TextInputDialog("رابط JSON للفيديوهات", s.feedUrl, hint = "https://...", onOk = { v ->
+            vm.update { setFeedUrl(if (v.startsWith("https://") || v.isEmpty()) v else s.feedUrl) }; dialog = ""
+        }, onDismiss = { dialog = "" })
         "piped" -> TextInputDialog("عنوان خادم Piped", s.pipedInstance, hint = "https://...", onOk = { v ->
             if (v.startsWith("https://")) vm.update { setPiped(v.trimEnd('/')) }; dialog = ""
         }, onDismiss = { dialog = "" })

@@ -30,6 +30,7 @@ data class Settings(
     val tileShape: String = "banner",            // banner | rounded | square | circle
     val videoApps: Set<String> = emptySet(),      // تطبيقات صف المشاهدة
     val pipedInstance: String = "https://pipedapi.kavin.rocks",
+    val feedUrl: String = "",                    // رابط JSON لمصدر فيديو مخصص
     val appOrder: List<String> = emptyList(),     // ترتيب التطبيقات (أسماء الحزم)
     val folders: List<Folder> = emptyList()
 )
@@ -59,6 +60,7 @@ class Prefs(private val context: Context) {
         val tileShape = stringPreferencesKey("tile_shape")
         val videoApps = stringSetPreferencesKey("video_apps")
         val piped = stringPreferencesKey("piped")
+        val feedUrl = stringPreferencesKey("feed_url")
     }
 
     val flow: Flow<Settings> = context.store.data.map { p ->
@@ -85,6 +87,7 @@ class Prefs(private val context: Context) {
             tileShape = p[K.tileShape] ?: d.tileShape,
             videoApps = p[K.videoApps] ?: d.videoApps,
             pipedInstance = p[K.piped] ?: d.pipedInstance,
+            feedUrl = p[K.feedUrl] ?: d.feedUrl,
             appOrder = (p[K.appOrder] ?: "").split("\n").filter { it.isNotEmpty() },
             folders = foldersFromJson(p[K.folders])
         )
@@ -110,6 +113,7 @@ class Prefs(private val context: Context) {
     suspend fun setTileShape(v: String) = edit { it[K.tileShape] = v }
     suspend fun setVideoApps(v: Set<String>) = edit { it[K.videoApps] = v }
     suspend fun setPiped(v: String) = edit { it[K.piped] = v }
+    suspend fun setFeedUrl(v: String) = edit { it[K.feedUrl] = v }
     suspend fun setAppOrder(v: List<String>) = edit { it[K.appOrder] = v.joinToString("\n") }
     suspend fun setFolders(v: List<Folder>) = edit { it[K.folders] = foldersToJson(v) }
 
