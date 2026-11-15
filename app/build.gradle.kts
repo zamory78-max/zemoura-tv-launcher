@@ -12,10 +12,21 @@ android {
         applicationId = "com.tvlauncher"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
+        // يزيد مع كل بناء في GitHub ليقبل أندرويد التحديث
+        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
         versionName = "0.1.0"
         val ytKey = (project.findProperty("YOUTUBE_API_KEY") as String?) ?: ""
         buildConfigField("String", "YOUTUBE_API_KEY", "\"$ytKey\"")
+    }
+
+    // مفتاح توقيع ثابت: بدونه يتغيّر التوقيع في كل بناء ويفشل التحديث فوق النسخة القديمة
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildFeatures {
