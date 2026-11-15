@@ -91,7 +91,6 @@ fun HomeScreen(
     val apps by vm.apps.collectAsStateWithLifecycle()
     val weather by vm.weather.collectAsStateWithLifecycle()
     val videos by vm.videos.collectAsStateWithLifecycle()
-    val now by produceState(Date()) { while (true) { value = Date(); delay(1000) } }
 
     var menuFor by remember { mutableStateOf<AppEntry?>(null) }
     var newFolder by remember { mutableStateOf(false) }
@@ -127,7 +126,7 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(22.dp)
         ) {
             item {
-                TopBar(s, now, weather, editMode,
+                TopBar(s, weather, editMode,
                     onEdit = { editMode = !editMode; moving = null },
                     onSettings = { if (s.protectSettings && vm.hasPin) guard("الإعدادات محمية", onSettings) else onSettings() })
             }
@@ -277,9 +276,11 @@ fun HomeScreen(
 
 @Composable
 private fun TopBar(
-    s: Settings, now: Date, weather: WeatherInfo?, editMode: Boolean,
+    s: Settings, weather: WeatherInfo?, editMode: Boolean,
     onEdit: () -> Unit, onSettings: () -> Unit
 ) {
+    // الساعة تُحدَّث هنا فقط كي لا يُعاد رسم الصفوف كل ثانية (سبب التقطيع)
+    val now by produceState(Date()) { while (true) { value = Date(); delay(1000) } }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
         Column {
             Text(SimpleDateFormat("HH:mm", Locale.US).format(now), color = Palette.Text, fontSize = 68.sp, fontWeight = FontWeight.ExtraBold)

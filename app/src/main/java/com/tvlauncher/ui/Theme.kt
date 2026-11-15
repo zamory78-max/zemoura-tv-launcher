@@ -9,6 +9,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
@@ -93,7 +94,7 @@ fun Focusable(
     val st = remember { KeyState() }
     val click by rememberUpdatedState(onClick)
     val long by rememberUpdatedState(onLongClick)
-    val scale by animateFloatAsState(if (focused) 1.06f else 1f, label = "focusScale")
+    val scale by animateFloatAsState(if (focused) 1.06f else 1f, tween(110), label = "focusScale")
     Box(
         modifier
             .scale(scale)
