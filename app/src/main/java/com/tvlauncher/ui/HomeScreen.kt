@@ -15,6 +15,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -65,9 +68,12 @@ fun HomeScreen(
 
     var menuFor by remember { mutableStateOf<AppEntry?>(null) }
     var newFolder by remember { mutableStateOf(false) }
+    var moving by remember { mutableStateOf<String?>(null) }   // "app:<pkg>" أو "folder:<id>"
+    var folderMenu by remember { mutableStateOf<Folder?>(null) }
     var info by remember { mutableStateOf<Pair<String, String>?>(null) }
 
-    val visible = apps.filter { it.pkg !in s.hiddenApps }
+    val ordered = remember(apps, s.appOrder) { AppRepository.applyOrder(apps, s.appOrder) }
+    val visible = ordered.filter { it.pkg !in s.hiddenApps }
     val supported = visible.filter { it.supported }
     val unsupported = if (s.showUnsupported) visible.filter { !it.supported } else emptyList()
 
@@ -97,23 +103,32 @@ fun HomeScreen(
                 }
             }
 
-            item { AppsRow("التطبيقات", supported, s, onClick = ::launch, onLong = { menuFor = it }) }
+            item { AppsRow("التطبيقات", supported, s, moving, vm::moveApp, { moving = null }, onClick = ::launch, onLong = { menuFor = it }) }
 
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SectionTitle("المجلدات")
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
                         items(s.folders, key = { it.id }) { f ->
+                            val isMoving = moving == "folder:${f.id}"
+                            val fr = remember { FocusRequester() }
+                            val pos = s.folders.indexOf(f)
+                            LaunchedEffect(isMoving, pos) { if (isMoving) runCatching { fr.requestFocus() } }
                             Focusable(
+                                onLongClick = { folderMenu = f },
                                 onClick = {
-                                    if (f.locked && vm.hasPin) guard("المجلد مقفل") { onFolder(f.id) }
+                                    if (isMoving) moving = null
+                                    else if (f.locked && vm.hasPin) guard("المجلد مقفل") { onFolder(f.id) }
                                     else if (f.locked) info = "لا يوجد رمز سري" to "عيّن رمزاً سرياً من الإعدادات أولاً."
                                     else onFolder(f.id)
                                 },
                                 modifier = Modifier.size(200.dp, 112.dp)
+                                    .moveKeys(isMoving, { vm.moveFolder(f.id, it) }, { moving = null })
+                                    .focusRequester(fr)
                             ) {
                                 Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.Center,
                                     horizontalAlignment = Alignment.CenterHorizontally) {
+                                    if (isMoving) Badge("حرّك بالأسهم ثم OK")
                                     Text(f.name, color = Palette.Text, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text("${f.items.size} عناصر", color = Palette.Muted, fontSize = 16.sp)
                                     if (f.locked) Badge("مقفل")
@@ -132,7 +147,7 @@ fun HomeScreen(
             }
 
             if (unsupported.isNotEmpty()) item {
-                AppsRow("تطبيقات غير مدعومة للتلفاز (قد لا تعمل بالريموت)", unsupported, s, onClick = ::launch, onLong = { menuFor = it })
+                AppsRow("تطبيقات غير مدعومة للتلفاز (قد لا تعمل بالريموت)", unsupported, s, moving, vm::moveApp, { moving = null }, onClick = ::launch, onLong = { menuFor = it })
             }
         }
     }
@@ -140,6 +155,7 @@ fun HomeScreen(
     menuFor?.let { app ->
         val opts = buildList {
             add("lock" to if (app.pkg in s.lockedApps) "إلغاء قفل التطبيق" else "قفل التطبيق بالرمز")
+            add("move" to "نقل (تغيير المكان)")
             add("hide" to "إخفاء من الشاشة")
             s.folders.forEach { add("f:${it.id}" to "إضافة إلى مجلد: ${it.name}") }
             add("info" to "معلومات التطبيق")
@@ -151,10 +167,18 @@ fun HomeScreen(
                     if (!vm.hasPin) info = "لا يوجد رمز سري" to "عيّن رمزاً سرياً من الإعدادات أولاً."
                     else guard("تأكيد الرمز") { vm.toggleAppLock(app.pkg) }
                 }
+                key == "move" -> moving = "app:${app.pkg}"
                 key == "hide" -> vm.hideApp(app.pkg)
                 key == "info" -> AppRepository.openAppSettings(ctx, app.pkg)
                 key.startsWith("f:") -> vm.addToFolder(key.removePrefix("f:"), FolderItem(true, app.pkg, app.label))
             }
+        })
+    }
+    folderMenu?.let { f ->
+        ChoiceDialog(f.name, listOf("move" to "نقل (تغيير المكان)", "delete" to "حذف المجلد"), onDismiss = { folderMenu = null }, onPick = { k ->
+            folderMenu = null
+            if (k == "move") moving = "folder:${f.id}"
+            else if (f.locked && vm.hasPin) guard("المجلد مقفل") { vm.deleteFolder(f.id) } else vm.deleteFolder(f.id)
         })
     }
     if (newFolder) TextInputDialog("اسم المجلد", hint = "مثال: الأطفال", onOk = {
@@ -215,14 +239,26 @@ private fun TopBar(s: Settings, now: Date, weather: WeatherInfo?, onSettings: ()
 @Composable
 private fun AppsRow(
     title: String, list: List<AppEntry>, s: Settings,
+    moving: String?, onMove: (List<String>, String, Int) -> Unit, onDone: () -> Unit,
     onClick: (AppEntry) -> Unit, onLong: (AppEntry) -> Unit
 ) {
+    val rowPkgs = list.map { it.pkg }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionTitle(title)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
             items(list, key = { it.pkg }) { app ->
+                val isMoving = moving == "app:${app.pkg}"
+                val fr = remember { FocusRequester() }
+                LaunchedEffect(isMoving, rowPkgs.indexOf(app.pkg)) { if (isMoving) runCatching { fr.requestFocus() } }
                 Column(Modifier.width(200.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Focusable(onClick = { onClick(app) }, onLongClick = { onLong(app) }, modifier = Modifier.size(200.dp, 112.dp)) {
+                    Focusable(
+                        onClick = { if (isMoving) onDone() else onClick(app) },
+                        onLongClick = { onLong(app) },
+                        modifier = Modifier.size(200.dp, 112.dp)
+                            .moveKeys(isMoving, { onMove(rowPkgs, app.pkg, it) }, onDone)
+                            .focusRequester(fr)
+                    ) {
+                        if (isMoving) Box(Modifier.align(Alignment.TopEnd).padding(8.dp)) { Badge("حرّك بالأسهم ثم OK") }
                         val bmp = remember(app.pkg) {
                             runCatching {
                                 if (app.banner != null) app.banner.toBitmap(320, 180).asImageBitmap()
@@ -268,3 +304,21 @@ fun WallpaperHost(vm: LauncherViewModel, content: @Composable () -> Unit) {
         content()
     }
 }
+
+/**
+ * وضع النقل: السهم الأيسر/الأيمن يحرّك العنصر، وزر الرجوع ينهي النقل.
+ * الواجهة من اليمين لليسار، لذا اليسار = العنصر التالي (+1) واليمين = السابق (-1).
+ */
+fun Modifier.moveKeys(active: Boolean, onMove: (Int) -> Unit, onDone: () -> Unit): Modifier =
+    if (!active) this else this.onPreviewKeyEvent { e ->
+        val handled = e.key in listOf(Key.DirectionLeft, Key.DirectionRight, Key.DirectionUp, Key.DirectionDown, Key.Back, Key.Escape)
+        if (handled && e.type == KeyEventType.KeyDown) {
+            when (e.key) {
+                Key.DirectionLeft -> onMove(+1)
+                Key.DirectionRight -> onMove(-1)
+                Key.Back, Key.Escape -> onDone()
+                else -> {}
+            }
+        }
+        handled
+    }

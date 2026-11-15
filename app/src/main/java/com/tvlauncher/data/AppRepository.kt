@@ -41,6 +41,12 @@ object AppRepository {
             .sortedBy { it.label.lowercase() }
     }
 
+    /** يطبّق الترتيب المحفوظ؛ غير المرتّب يبقى في آخر القائمة بالترتيب الأبجدي (الفرز مستقر). */
+    fun applyOrder(apps: List<AppEntry>, order: List<String>): List<AppEntry> {
+        val idx = order.withIndex().associate { it.value to it.index }
+        return apps.sortedBy { idx[it.pkg] ?: Int.MAX_VALUE }
+    }
+
     fun launch(context: Context, pkg: String): Boolean {
         val pm = context.packageManager
         val intent = pm.getLeanbackLaunchIntentForPackage(pkg) ?: pm.getLaunchIntentForPackage(pkg)

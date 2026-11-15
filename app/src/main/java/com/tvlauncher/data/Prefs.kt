@@ -26,6 +26,7 @@ data class Settings(
     val iqamaMinutes: Int = 10,
     val adhanEnabled: Boolean = true,
     val adhanSound: Boolean = true,
+    val appOrder: List<String> = emptyList(),     // ترتيب التطبيقات (أسماء الحزم)
     val folders: List<Folder> = emptyList()
 )
 
@@ -49,6 +50,7 @@ class Prefs(private val context: Context) {
         val adhan = booleanPreferencesKey("adhan")
         val adhanSound = booleanPreferencesKey("adhan_sound")
         val folders = stringPreferencesKey("folders")
+        val appOrder = stringPreferencesKey("app_order")
     }
 
     val flow: Flow<Settings> = context.store.data.map { p ->
@@ -71,6 +73,7 @@ class Prefs(private val context: Context) {
             iqamaMinutes = p[K.iqama] ?: d.iqamaMinutes,
             adhanEnabled = p[K.adhan] ?: d.adhanEnabled,
             adhanSound = p[K.adhanSound] ?: d.adhanSound,
+            appOrder = (p[K.appOrder] ?: "").split("\n").filter { it.isNotEmpty() },
             folders = foldersFromJson(p[K.folders])
         )
     }
@@ -91,6 +94,7 @@ class Prefs(private val context: Context) {
     suspend fun setIqama(v: Int) = edit { it[K.iqama] = v }
     suspend fun setAdhan(v: Boolean) = edit { it[K.adhan] = v }
     suspend fun setAdhanSound(v: Boolean) = edit { it[K.adhanSound] = v }
+    suspend fun setAppOrder(v: List<String>) = edit { it[K.appOrder] = v.joinToString("\n") }
     suspend fun setFolders(v: List<Folder>) = edit { it[K.folders] = foldersToJson(v) }
 
     private suspend fun edit(block: (MutablePreferences) -> Unit) {

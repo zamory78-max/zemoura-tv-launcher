@@ -91,6 +91,30 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     fun hideApp(pkg: String) = update { setHiddenApps(settings.value.hiddenApps + pkg) }
 
+    // ---------- إعادة الترتيب ----------
+    /** ينقل تطبيقاً خطوة داخل صفّه المعروض (rowPkgs = ترتيب الصف الحالي). */
+    fun moveApp(rowPkgs: List<String>, pkg: String, delta: Int) = update {
+        val i = rowPkgs.indexOf(pkg)
+        val j = i + delta
+        if (i < 0 || j !in rowPkgs.indices) return@update
+        val full = AppRepository.applyOrder(_apps.value, settings.value.appOrder).map { it.pkg }.toMutableList()
+        val a = full.indexOf(pkg); val b = full.indexOf(rowPkgs[j])
+        if (a < 0 || b < 0) return@update
+        full[a] = rowPkgs[j]; full[b] = pkg
+        setAppOrder(full)
+    }
+
+    fun moveFolder(id: String, delta: Int) = update {
+        val list = settings.value.folders.toMutableList()
+        val i = list.indexOfFirst { it.id == id }
+        val j = i + delta
+        if (i < 0 || j !in list.indices) return@update
+        val t = list[i]; list[i] = list[j]; list[j] = t
+        setFolders(list)
+    }
+
+    fun deleteFolder(id: String) = update { setFolders(settings.value.folders.filter { it.id != id }) }
+
     // ---------- المجلدات ----------
     fun addFolder(name: String) = update {
         setFolders(settings.value.folders + Folder(UUID.randomUUID().toString(), name, false, emptyList()))
