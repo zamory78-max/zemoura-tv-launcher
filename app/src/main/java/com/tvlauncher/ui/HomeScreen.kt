@@ -136,6 +136,8 @@ fun HomeScreen(
         val go = { if (!AppRepository.launch(ctx, app.pkg)) info = "تعذر التشغيل" to "لا يمكن تشغيل ${app.label}" }
         if (app.pkg in s.lockedApps && vm.hasPin) guard("هذا التطبيق مقفل", go) else go()
     }
+    // عمليات التعديل (وضع التعديل، القوائم، الإضافة) تتطلب الرمز السري إن كان معيّناً
+    fun protectEdit(action: () -> Unit) { if (editMode || !vm.hasPin) action() else guard("هذه العملية محمية بالرمز", action) }
     val onAppClick: (AppEntry) -> Unit = { if (editMode) menuFor = it else launch(it) }
 
     Box(Modifier.fillMaxSize()) {
@@ -145,7 +147,7 @@ fun HomeScreen(
         ) {
             item {
                 TopBar(s, weather, editMode,
-                    onEdit = { editMode = !editMode; moving = null },
+                    onEdit = { if (editMode) { editMode = false; moving = null } else protectEdit { editMode = true; moving = null } },
                     onSettings = { if (s.protectSettings && vm.hasPin) guard("الإعدادات محمية", onSettings) else onSettings() })
             }
             if (editMode) item {
@@ -164,19 +166,19 @@ fun HomeScreen(
             // تطبيقات المشاهدة في الأسفل، تاركةً مكان الفيديوهات لها
             if (s.showVideos) item {
                 AppsRow("تطبيقات المشاهدة", videoApps, s, style, rtl, moving, vm::moveApp, { moving = null },
-                    onClick = onAppClick, onLong = { menuFor = it }, onAdd = { pickWatch = true },
+                    onClick = onAppClick, onLong = { a -> protectEdit { menuFor = a } }, onAdd = { protectEdit { pickWatch = true } },
                     initialFocus = videoApps.isNotEmpty())
             }
 
             item {
                 AppsRow("التطبيقات", supported, s, style, rtl, moving, vm::moveApp, { moving = null },
-                    onClick = onAppClick, onLong = { menuFor = it },
-                    onAdd = { pickMain = true }, initialFocus = !(s.showVideos && videoApps.isNotEmpty()))
+                    onClick = onAppClick, onLong = { a -> protectEdit { menuFor = a } },
+                    onAdd = { protectEdit { pickMain = true } }, initialFocus = !(s.showVideos && videoApps.isNotEmpty()))
             }
             items(s.rows, key = { "row:" + it.id }) { row ->
                 AppsRow(row.name, visible.filter { it.pkg in row.pkgs }, s, style, rtl, moving, vm::moveApp, { moving = null },
-                    onClick = onAppClick, onLong = { menuFor = it },
-                    onAdd = { pickRow = row.id })
+                    onClick = onAppClick, onLong = { a -> protectEdit { menuFor = a } },
+                    onAdd = { protectEdit { pickRow = row.id } })
             }
 
             item {
@@ -189,7 +191,7 @@ fun HomeScreen(
                             val pos = s.folders.indexOf(f)
                             LaunchedEffect(isMoving, pos) { if (isMoving) runCatching { fr.requestFocus() } }
                             Focusable(
-                                onLongClick = { folderMenu = f },
+                                onLongClick = { protectEdit { folderMenu = f } },
                                 onClick = {
                                     if (isMoving) moving = null
                                     else if (editMode) folderMenu = f
@@ -224,7 +226,7 @@ fun HomeScreen(
 
             if (unsupported.isNotEmpty()) item {
                 AppsRow("تطبيقات أخرى (غير مصممة للتلفاز)", unsupported, s, style, rtl, moving, vm::moveApp, { moving = null },
-                    onClick = onAppClick, onLong = { menuFor = it })
+                    onClick = onAppClick, onLong = { a -> protectEdit { menuFor = a } })
             }
         }
     }
