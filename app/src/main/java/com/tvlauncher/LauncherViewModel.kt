@@ -27,6 +27,9 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     private val _videos = MutableStateFlow<List<Video>>(emptyList())
     val videos: StateFlow<List<Video>> = _videos
 
+    private val _loaded = MutableStateFlow(false)
+    val loaded: StateFlow<Boolean> = _loaded
+
     private var failCount = 0
     private var lockedUntil = 0L
 
@@ -63,6 +66,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         val fresh = AppRepository.load(getApplication())
         // لا نُعيد رسم الشاشة إن لم تتغير قائمة التطبيقات (يمنع التقطيع عند كل عودة)
         if (fresh.map { it.pkg to it.label } != _apps.value.map { it.pkg to it.label }) _apps.value = fresh
+        _loaded.value = true
     }
 
     // ---------- الرمز السري ----------

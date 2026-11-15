@@ -14,6 +14,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import com.tvlauncher.ui.*
 
@@ -54,8 +56,16 @@ class MainActivity : ComponentActivity() {
                 // زر الرجوع: من أي شاشة فرعية إلى الرئيسية، وفي الرئيسية لا يفعل شيئاً (لاونشر)
                 BackHandler { screen = Screen.Home }
 
+                val loaded by vm.loaded.collectAsStateWithLifecycle()
                 Box(Modifier.fillMaxSize().background(Palette.Night)) {
-                    WallpaperHost(vm) {
+                    if (!loaded) {
+                        // شاشة تحميل بشعار زمورة بدل الشاشة السوداء
+                        Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                            androidx.compose.foundation.Image(
+                                androidx.compose.ui.res.painterResource(R.drawable.logo), "Zemoura Launcher",
+                                Modifier.size(160.dp))
+                        }
+                    } else WallpaperHost(vm) {
                         when (val sc = screen) {
                             Screen.Home -> HomeScreen(vm, onSettings = { screen = Screen.Settings },
                                 onFolder = { screen = Screen.Folder(it) }, guard = guard)
