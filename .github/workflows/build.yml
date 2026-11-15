@@ -20,12 +20,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.9
-      - name: Build debug APK
-        run: gradle assembleDebug --stacktrace
+      - name: Build release APK
+        run: gradle assembleRelease --stacktrace
         env:
           ORG_GRADLE_PROJECT_YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk tv-launcher.apk
+        run: cp app/build/outputs/apk/release/app-release.apk tv-launcher.apk
       - uses: actions/upload-artifact@v4
         with:
           name: tv-launcher-debug-apk
@@ -36,6 +36,6 @@ jobs:
         with:
           tag_name: latest
           name: أحدث نسخة
-          body: "نسخة تجريبية (debug). حمّل tv-launcher.apk وثبّته على الجهاز."
+          body: "نسخة إصدار (release) سريعة الإقلاع. حمّل tv-launcher.apk وثبّته على الجهاز."
           files: tv-launcher.apk
           make_latest: true

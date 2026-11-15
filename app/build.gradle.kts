@@ -41,7 +41,13 @@ android {
     kotlinOptions { jvmTarget = "17" }
 
     buildTypes {
-        release { isMinifyEnabled = false }
+        release {
+            // نسخة الإصدار أسرع بكثير في الإقلاع من نسخة debug (R8 + ملفات Baseline)
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("debug")   // نفس المفتاح الثابت ليعمل التحديث فوق القديم
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
     }
 }
 

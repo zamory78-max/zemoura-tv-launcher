@@ -1,0 +1,4 @@
+-keep class com.batoulapps.adhan.** { *; }
+-keep class com.tvlauncher.data.** { *; }
+-keep class com.tvlauncher.adhan.** { *; }
+-dontwarn org.jetbrains.annotations.**
