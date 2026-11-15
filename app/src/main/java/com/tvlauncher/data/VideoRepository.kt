@@ -20,8 +20,38 @@ object VideoRepository {
     const val YOUTUBE_PACKAGE_TV = "com.google.android.youtube.tv"
 
     /** المصدر المخصص أولاً (إن ضُبط)، ثم يوتيوب. */
-    suspend fun all(key: String, region: String, piped: String, feed: String): List<Video> =
-        customFeed(feed) + trending(key, region, piped)
+    suspend fun all(key: String, region: String, piped: String, feed: String, channels: String): List<Video> {
+        val k = key.ifBlank { BuildConfig.YOUTUBE_API_KEY }
+        val ids = channels.split(',', '\n', ' ').map { it.trim() }.filter { it.startsWith("UC") && it.length >= 20 }
+        val own = if (ids.isNotEmpty() && k.isNotBlank()) channelVideos(k, ids) else emptyList()
+        // إن حُدّدت قنوات فنعرض فيديوهاتها بدل «الأكثر مشاهدة»
+        return customFeed(feed) + own.ifEmpty { trending(key, region, piped) }
+    }
+
+    /** آخر فيديوهات قنوات محددة عبر قائمة الرفع (تكلفتها 1 وحدة حصة لكل قناة). */
+    private suspend fun channelVideos(key: String, ids: List<String>): List<Video> = withContext(Dispatchers.IO) {
+        ids.flatMap { id ->
+            runCatching {
+                val url = "https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=5" +
+                    "&playlistId=UU${id.removePrefix("UC")}&key=$key"
+                val c = URL(url).openConnection() as HttpURLConnection
+                c.connectTimeout = 10_000; c.readTimeout = 10_000
+                val body = try { c.inputStream.bufferedReader().readText() } finally { c.disconnect() }
+                val items = JSONObject(body).getJSONArray("items")
+                (0 until items.length()).map {
+                    val sn = items.getJSONObject(it).getJSONObject("snippet")
+                    val th = sn.optJSONObject("thumbnails")
+                    val thumb = (th?.optJSONObject("medium") ?: th?.optJSONObject("default"))?.optString("url").orEmpty()
+                    sn.optString("publishedAt") to Video(
+                        id = sn.getJSONObject("resourceId").getString("videoId"),
+                        title = sn.getString("title"),
+                        channel = sn.optString("videoOwnerChannelTitle", sn.optString("channelTitle")),
+                        thumb = thumb, duration = ""
+                    )
+                }
+            }.getOrDefault(emptyList())
+        }.sortedByDescending { it.first }.map { it.second }.take(15)
+    }
 
     /**
      * مصدر مخصص: رابط JSON يعيد قائمة (أو {"items":[...]}) عناصرها:

@@ -53,12 +53,12 @@ object Wallpapers {
 }
 
 @Composable
-fun LauncherTheme(content: @Composable () -> Unit) {
+fun LauncherTheme(rtl: Boolean = true, content: @Composable () -> Unit) {
     // تصميم الواجهة مبني على عرض 1600dp؛ نُكبّره/نصغّره ليملأ أي شاشة (720p/1080p/4K) بنفس المظهر
     val widthPx = LocalContext.current.resources.displayMetrics.widthPixels
     val scaled = Density(density = widthPx / 1600f, fontScale = 1f)
     CompositionLocalProvider(
-        LocalLayoutDirection provides LayoutDirection.Rtl,
+        LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
         LocalDensity provides scaled
     ) {
         MaterialTheme(

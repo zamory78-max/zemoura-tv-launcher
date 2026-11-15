@@ -38,18 +38,18 @@ object WeatherRepository {
         }.getOrNull()
     }
 
-    suspend fun searchCities(query: String): List<City> = withContext(Dispatchers.IO) {
+    suspend fun searchCities(query: String, countryCode: String? = null): List<City> = withContext(Dispatchers.IO) {
         if (query.isBlank()) return@withContext emptyList()
         runCatching {
             val q = URLEncoder.encode(query.trim(), "UTF-8")
             val arr = JSONObject(get(
-                "https://geocoding-api.open-meteo.com/v1/search?name=$q&count=8&language=ar&format=json"
+                "https://geocoding-api.open-meteo.com/v1/search?name=$q&count=10&language=ar&format=json" + (countryCode?.let { "&countryCode=$it" } ?: "")
             )).optJSONArray("results") ?: return@runCatching emptyList()
             (0 until arr.length()).map {
                 val o = arr.getJSONObject(it)
                 City(
                     o.getString("name"),
-                    o.optString("country"),
+                    listOf(o.optString("admin1"), o.optString("country")).filter { it.isNotBlank() }.distinct().joinToString("، "),
                     o.getDouble("latitude"),
                     o.getDouble("longitude"),
                     o.optString("timezone", "UTC")

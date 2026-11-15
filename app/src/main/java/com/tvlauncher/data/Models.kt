@@ -64,6 +64,24 @@ fun foldersFromJson(s: String?): List<Folder> = try {
     }
 } catch (e: Exception) { emptyList() }
 
+/** صف مخصص باسم يختاره المستخدم (مثل «ألعاب») ويحوي التطبيقات التي يحددها. */
+data class CustomRow(val id: String, val name: String, val pkgs: List<String>)
+
+fun rowsToJson(list: List<CustomRow>): String = JSONArray().also { arr ->
+    list.forEach { r ->
+        arr.put(JSONObject().put("id", r.id).put("name", r.name).put("pkgs", JSONArray(r.pkgs)))
+    }
+}.toString()
+
+fun rowsFromJson(s: String?): List<CustomRow> = try {
+    val arr = JSONArray(s ?: "[]")
+    (0 until arr.length()).map { i ->
+        val o = arr.getJSONObject(i)
+        val p = o.getJSONArray("pkgs")
+        CustomRow(o.getString("id"), o.getString("name"), (0 until p.length()).map { p.getString(it) })
+    }
+} catch (e: Exception) { emptyList() }
+
 data class Video(
     val id: String,
     val title: String,

@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -35,7 +36,8 @@ class MainActivity : ComponentActivity() {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
         setContent {
-            LauncherTheme {
+            val st by vm.settings.collectAsStateWithLifecycle()
+            LauncherTheme(rtl = st.layoutRtl) {
                 var pending by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
                 var pinError by remember { mutableStateOf<String?>(null) }
 

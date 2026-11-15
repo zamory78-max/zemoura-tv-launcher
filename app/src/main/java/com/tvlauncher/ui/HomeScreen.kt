@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -96,14 +98,21 @@ fun HomeScreen(
     var moving by remember { mutableStateOf<String?>(null) }   // "app:<pkg>" أو "folder:<id>"
     var folderMenu by remember { mutableStateOf<Folder?>(null) }
     var pickWatch by remember { mutableStateOf(false) }
+    var pickMain by remember { mutableStateOf(false) }
+    var pickRow by remember { mutableStateOf<String?>(null) }
+    var rowMenu by remember { mutableStateOf<CustomRow?>(null) }
+    var newRow by remember { mutableStateOf(false) }
+    var renameRow by remember { mutableStateOf<CustomRow?>(null) }
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     var editMode by remember { mutableStateOf(false) }          // في وضع التعديل: OK على أي عنصر يفتح قائمته
     var info by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     val style = tileStyle(s)
     val ordered = remember(apps, s.appOrder) { AppRepository.applyOrder(apps, s.appOrder) }
     val visible = ordered.filter { it.pkg !in s.hiddenApps }
-    val supported = visible.filter { it.supported }
-    val unsupported = if (s.showUnsupported) visible.filter { !it.supported } else emptyList()
+    val inRows = s.rows.flatMap { it.pkgs }.toSet()          // التطبيقات المنقولة إلى صفوف مخصصة
+    val supported = visible.filter { it.supported && it.pkg !in inRows }
+    val unsupported = if (s.showUnsupported) visible.filter { !it.supported && it.pkg !in inRows } else emptyList()
     val videoApps = ordered.filter { it.pkg in s.videoApps }
 
     fun launch(app: AppEntry) {
@@ -130,22 +139,30 @@ fun HomeScreen(
             if (s.showVideos) item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SectionTitle("المشاهدة")
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
-                        items(videoApps, key = { "va:" + it.pkg }) { app -> VideoAppCard(app) { launch(app) } }
+                    if (videos.isEmpty()) {
+                        Text("لا توجد فيديوهات بعد: أضف مفتاح YouTube وقنواتك من الإعدادات ← التطبيقات والفيديو.",
+                            color = Palette.Muted, fontSize = 18.sp)
+                    } else LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
                         items(videos, key = { it.id }) { v -> VideoCard(v) { VideoRepository.play(ctx, v) } }
-                        item {
-                            Focusable(onClick = { pickWatch = true }, modifier = Modifier.size(300.dp, 169.dp)) {
-                                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("+", color = Palette.Amber, fontSize = 56.sp, fontWeight = FontWeight.ExtraBold)
-                                    Text("إضافة تطبيق مشاهدة", color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
                     }
                 }
             }
+            // تطبيقات المشاهدة في الأسفل، تاركةً مكان الفيديوهات لها
+            if (s.showVideos) item {
+                AppsRow("تطبيقات المشاهدة", videoApps, s, style, rtl, moving, vm::moveApp, { moving = null },
+                    onClick = onAppClick, onLong = { menuFor = it }, onAdd = { pickWatch = true })
+            }
 
-            item { AppsRow("التطبيقات", supported, s, style, moving, vm::moveApp, { moving = null }, onClick = onAppClick, onLong = { menuFor = it }) }
+            item {
+                AppsRow("التطبيقات", supported, s, style, rtl, moving, vm::moveApp, { moving = null },
+                    onClick = onAppClick, onLong = { menuFor = it },
+                    onAdd = { pickMain = true }, onNewRow = { newRow = true })
+            }
+            items(s.rows, key = { "row:" + it.id }) { row ->
+                AppsRow(row.name, visible.filter { it.pkg in row.pkgs }, s, style, rtl, moving, vm::moveApp, { moving = null },
+                    onClick = onAppClick, onLong = { menuFor = it },
+                    onAdd = { pickRow = row.id }, onManage = { rowMenu = row })
+            }
 
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -167,7 +184,7 @@ fun HomeScreen(
                                 },
                                 shape = style.shape,
                                 modifier = Modifier.size(style.w, style.h)
-                                    .moveKeys(isMoving, { vm.moveFolder(f.id, it) }, { moving = null })
+                                    .moveKeys(isMoving, rtl, { vm.moveFolder(f.id, it) }, { moving = null })
                                     .focusRequester(fr)
                             ) {
                                 Column(Modifier.fillMaxSize().padding(8.dp), verticalArrangement = Arrangement.Center,
@@ -191,7 +208,7 @@ fun HomeScreen(
             }
 
             if (unsupported.isNotEmpty()) item {
-                AppsRow("تطبيقات أخرى (غير مصممة للتلفاز)", unsupported, s, style, moving, vm::moveApp, { moving = null },
+                AppsRow("تطبيقات أخرى (غير مصممة للتلفاز)", unsupported, s, style, rtl, moving, vm::moveApp, { moving = null },
                     onClick = onAppClick, onLong = { menuFor = it })
             }
         }
@@ -201,6 +218,8 @@ fun HomeScreen(
         val opts = buildList {
             add("move" to "نقل (تغيير المكان)")
             add("hide" to "إخفاء من الشاشة")
+            s.rows.filter { app.pkg !in it.pkgs }.forEach { add("r:${it.id}" to "نقل إلى صف: ${it.name}") }
+            if (app.pkg in inRows) add("unrow" to "إرجاعه إلى صف التطبيقات")
             s.folders.forEach { add("f:${it.id}" to "إضافة إلى مجلد: ${it.name}") }
             add("info" to "معلومات التطبيق / إلغاء التثبيت")
         }
@@ -210,6 +229,8 @@ fun HomeScreen(
                 key == "move" -> { editMode = false; moving = "app:${app.pkg}" }
                 key == "hide" -> vm.hideApp(app.pkg)
                 key == "info" -> AppRepository.openAppSettings(ctx, app.pkg)
+                key == "unrow" -> vm.removeFromRows(app.pkg)
+                key.startsWith("r:") -> vm.toggleRowApp(key.removePrefix("r:"), app.pkg)
                 key.startsWith("f:") -> vm.addToFolder(key.removePrefix("f:"), FolderItem(true, app.pkg, app.label))
             }
         })
@@ -224,6 +245,30 @@ fun HomeScreen(
     if (newFolder) TextInputDialog("اسم المجلد", hint = "مثال: الأطفال", onOk = {
         if (it.isNotBlank()) vm.addFolder(it); newFolder = false
     }, onDismiss = { newFolder = false })
+    if (pickMain) MultiToggleDialog("التطبيقات الظاهرة في الصف", ordered.map { Triple(it.pkg, it.label, it.pkg !in s.hiddenApps) },
+        onToggle = { pkg -> vm.update { setHiddenApps(if (pkg in s.hiddenApps) s.hiddenApps - pkg else s.hiddenApps + pkg) } },
+        onDismiss = { pickMain = false })
+    val pickedRow = s.rows.firstOrNull { it.id == pickRow }
+    if (pickedRow != null) MultiToggleDialog("تطبيقات صف «${pickedRow.name}»", ordered.map { Triple(it.pkg, it.label, it.pkg in pickedRow.pkgs) },
+        onToggle = { pkg -> vm.toggleRowApp(pickedRow.id, pkg) }, onDismiss = { pickRow = null })
+    if (newRow) TextInputDialog("اسم الصف الجديد", hint = "مثال: ألعاب", onOk = {
+        if (it.isNotBlank()) vm.addRow(it); newRow = false
+    }, onDismiss = { newRow = false })
+    renameRow?.let { r ->
+        TextInputDialog("اسم الصف", r.name, onOk = { if (it.isNotBlank()) vm.renameRow(r.id, it); renameRow = null }, onDismiss = { renameRow = null })
+    }
+    rowMenu?.let { r ->
+        ChoiceDialog(r.name, listOf("rename" to "تغيير الاسم", "up" to "تحريك الصف للأعلى", "down" to "تحريك الصف للأسفل", "delete" to "حذف الصف (ترجع تطبيقاته للأصل)"),
+            onDismiss = { rowMenu = null }, onPick = { k ->
+                rowMenu = null
+                when (k) {
+                    "rename" -> renameRow = r
+                    "up" -> vm.moveRow(r.id, -1)
+                    "down" -> vm.moveRow(r.id, +1)
+                    "delete" -> vm.deleteRow(r.id)
+                }
+            })
+    }
     if (pickWatch) MultiToggleDialog("تطبيقات صف المشاهدة", ordered.map { Triple(it.pkg, it.label, it.pkg in s.videoApps) },
         onToggle = { pkg -> vm.update { setVideoApps(if (pkg in s.videoApps) s.videoApps - pkg else s.videoApps + pkg) } },
         onDismiss = { pickWatch = false })
@@ -251,13 +296,18 @@ private fun TopBar(
 
 @Composable
 private fun AppsRow(
-    title: String, list: List<AppEntry>, s: Settings, style: TileStyle,
+    title: String, list: List<AppEntry>, s: Settings, style: TileStyle, rtl: Boolean,
     moving: String?, onMove: (List<String>, String, Int) -> Unit, onDone: () -> Unit,
-    onClick: (AppEntry) -> Unit, onLong: (AppEntry) -> Unit
+    onClick: (AppEntry) -> Unit, onLong: (AppEntry) -> Unit,
+    onAdd: (() -> Unit)? = null, onManage: (() -> Unit)? = null, onNewRow: (() -> Unit)? = null
 ) {
     val rowPkgs = list.map { it.pkg }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionTitle(title)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            SectionTitle(title)
+            if (onManage != null) Chip("إدارة الصف", onManage)
+            if (onNewRow != null) Chip("+ صف جديد", onNewRow)
+        }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
             items(list, key = { it.pkg }) { app ->
                 val isMoving = moving == "app:${app.pkg}"
@@ -269,7 +319,7 @@ private fun AppsRow(
                         onLongClick = { onLong(app) },
                         shape = style.shape,
                         modifier = Modifier.size(style.w, style.h)
-                            .moveKeys(isMoving, { onMove(rowPkgs, app.pkg, it) }, onDone)
+                            .moveKeys(isMoving, rtl, { onMove(rowPkgs, app.pkg, it) }, onDone)
                             .focusRequester(fr)
                     ) {
                         val useBanner = style.banner && app.banner != null
@@ -292,22 +342,22 @@ private fun AppsRow(
                         textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                 }
             }
+            if (onAdd != null) item {
+                Focusable(onClick = onAdd, shape = style.shape, modifier = Modifier.size(style.w, style.h)) {
+                    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("+", color = Palette.Amber, fontSize = 44.sp, fontWeight = FontWeight.ExtraBold)
+                        Text("إضافة تطبيق", color = Palette.Text, fontSize = 15.sp)
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun VideoAppCard(app: AppEntry, onClick: () -> Unit) {
-    Column(Modifier.width(300.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Focusable(onClick = onClick, modifier = Modifier.size(300.dp, 169.dp)) {
-            val bmp = remember(app.pkg) {
-                runCatching { (app.banner ?: app.icon)?.toBitmap(320, 180)?.asImageBitmap() }.getOrNull()
-            }
-            if (bmp != null) Image(bmp, app.label, contentScale = if (app.banner != null) ContentScale.Crop else ContentScale.Fit,
-                modifier = Modifier.fillMaxSize().padding(if (app.banner != null) 0.dp else 28.dp))
-        }
-        Text(app.label, color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text("افتح التطبيق", color = Palette.Muted, fontSize = 15.sp)
+private fun Chip(text: String, onClick: () -> Unit) {
+    Focusable(onClick = onClick, shape = RoundedCornerShape(20.dp)) {
+        Text(text, color = Palette.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
     }
 }
 
@@ -327,15 +377,15 @@ private fun VideoCard(v: Video, onClick: () -> Unit) {
 
 /**
  * وضع النقل: السهم الأيسر/الأيمن يحرّك العنصر، وزر الرجوع ينهي النقل.
- * الواجهة من اليمين لليسار، لذا اليسار = العنصر التالي (+1) واليمين = السابق (-1).
+ * في اتجاه RTL: اليسار = العنصر التالي (+1)؛ وفي LTR العكس.
  */
-fun Modifier.moveKeys(active: Boolean, onMove: (Int) -> Unit, onDone: () -> Unit): Modifier =
+fun Modifier.moveKeys(active: Boolean, rtl: Boolean, onMove: (Int) -> Unit, onDone: () -> Unit): Modifier =
     if (!active) this else this.onPreviewKeyEvent { e ->
         val handled = e.key in listOf(Key.DirectionLeft, Key.DirectionRight, Key.DirectionUp, Key.DirectionDown, Key.Back, Key.Escape)
         if (handled && e.type == KeyEventType.KeyDown) {
             when (e.key) {
-                Key.DirectionLeft -> onMove(+1)
-                Key.DirectionRight -> onMove(-1)
+                Key.DirectionLeft -> onMove(if (rtl) +1 else -1)
+                Key.DirectionRight -> onMove(if (rtl) -1 else +1)
                 Key.Back, Key.Escape -> onDone()
                 else -> {}
             }

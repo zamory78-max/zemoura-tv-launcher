@@ -43,11 +43,11 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         }
         // الفيديوهات: تحديث عند تغيّر المفتاح/البلد/التفعيل
         viewModelScope.launch {
-            settings.map { listOf(it.showVideos, it.youtubeKey, it.videoRegion, it.pipedInstance, it.feedUrl) }.distinctUntilChanged()
+            settings.map { listOf(it.showVideos, it.youtubeKey, it.videoRegion, it.pipedInstance, it.feedUrl, it.channels) }.distinctUntilChanged()
                 .collectLatest { v ->
-                    val on = v[0] as Boolean; val key = v[1] as String; val region = v[2] as String; val piped = v[3] as String; val feed = v[4] as String
+                    val on = v[0] as Boolean; val key = v[1] as String; val region = v[2] as String; val piped = v[3] as String; val feed = v[4] as String; val channels = v[5] as String
                     while (true) {
-                        _videos.value = if (on) VideoRepository.all(key, region, piped, feed) else emptyList()
+                        _videos.value = if (on) VideoRepository.all(key, region, piped, feed, channels) else emptyList()
                         delay(60 * 60_000L)
                     }
                 }
@@ -115,6 +115,34 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun deleteFolder(id: String) = update { setFolders(settings.value.folders.filter { it.id != id }) }
+
+    // ---------- الصفوف المخصصة ----------
+    private fun rows() = settings.value.rows
+
+    fun addRow(name: String) = update { setRows(rows() + CustomRow(UUID.randomUUID().toString(), name, emptyList())) }
+    fun renameRow(id: String, name: String) = update { setRows(rows().map { if (it.id == id) it.copy(name = name) else it }) }
+    fun deleteRow(id: String) = update { setRows(rows().filter { it.id != id }) }
+
+    fun moveRow(id: String, delta: Int) = update {
+        val l = rows().toMutableList()
+        val i = l.indexOfFirst { it.id == id }; val j = i + delta
+        if (i < 0 || j !in l.indices) return@update
+        val t = l[i]; l[i] = l[j]; l[j] = t
+        setRows(l)
+    }
+
+    /** يضيف/يزيل تطبيقاً من صف؛ والإضافة تنقله من أي صف آخر. */
+    fun toggleRowApp(id: String, pkg: String) = update {
+        setRows(rows().map { r ->
+            when {
+                r.id == id && pkg in r.pkgs -> r.copy(pkgs = r.pkgs - pkg)
+                r.id == id -> r.copy(pkgs = r.pkgs + pkg)
+                else -> r.copy(pkgs = r.pkgs - pkg)
+            }
+        })
+    }
+
+    fun removeFromRows(pkg: String) = update { setRows(rows().map { it.copy(pkgs = it.pkgs - pkg) }) }
 
     // ---------- المجلدات ----------
     fun addFolder(name: String) = update {

@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tvlauncher.LauncherViewModel
 import com.tvlauncher.data.City
+import com.tvlauncher.data.Countries
 import com.tvlauncher.data.PrayerRepository
 import com.tvlauncher.data.WeatherRepository
 import kotlinx.coroutines.launch
@@ -59,6 +60,8 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
     var dialog by remember { mutableStateOf("") }
     var cityResults by remember { mutableStateOf<List<City>>(emptyList()) }
     var msg by remember { mutableStateOf<String?>(null) }
+    var pickedCountry by remember { mutableStateOf("DZ") }
+    var pickedWilaya by remember { mutableStateOf(0) }
 
     val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
@@ -107,6 +110,10 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
 
         item { Section("المظهر") }
         item {
+            RowItem("اتجاه الواجهة والتنقل", if (s.layoutRtl) "من اليمين إلى اليسار" else "من اليسار إلى اليمين",
+                if (s.layoutRtl) "يمين ← يسار" else "يسار ← يمين") { vm.update { setLayoutRtl(!s.layoutRtl) } }
+        }
+        item {
             RowItem("حجم الأيقونات", null, listOf("صغير", "متوسط", "كبير")[s.tileScale.coerceIn(0, 2)]) { dialog = "tileScale" }
         }
         item {
@@ -130,6 +137,10 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
             RowItem("خادم Piped (بلا مفتاح)", "غيّره إن توقف الخادم الافتراضي", s.pipedInstance.removePrefix("https://")) { dialog = "piped" }
         }
         item {
+            RowItem("قنوات يوتيوب الخاصة بك", "ألصق معرّفات القنوات (تبدأ بـ UC) مفصولة بفاصلة؛ تُعرض آخر فيديوهاتها بمفتاحك",
+                if (s.channels.isBlank()) "غير مضبوطة" else "${s.channels.split(',').count { it.isNotBlank() }} قنوات") { dialog = "channels" }
+        }
+        item {
             RowItem("مصدر فيديو مخصص (رابط JSON)", "لعرض فيديوهات تطبيقك أنت (مثل Zemoura TV) داخل الصف؛ الصيغة في README",
                 if (s.feedUrl.isBlank()) "غير مضبوط" else "مضبوط") { dialog = "feed" }
         }
@@ -150,7 +161,7 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
         item { RowItem("اختيار صورة من الجهاز", "تُحفظ ويُعاد تحميلها بعد التشغيل") { pickImage.launch(arrayOf("image/*")) } }
 
         item { Section("الموقع والصلاة") }
-        item { RowItem("المدينة (الصلاة والطقس)", "ابحث عن أي مدينة بالاسم", s.city.name) { dialog = "city" } }
+        item { RowItem("المدينة (الصلاة والطقس)", "الدولة ← الولاية ← المدينة", s.city.name) { dialog = "country" } }
         item { RowItem("طريقة حساب الصلاة", null, PrayerRepository.methodName(s.method)) { dialog = "method" } }
         item {
             ToggleItem("المذهب في حساب العصر", if (s.madhab == "HANAFI") "حنفي" else "جمهور (الشافعي/المالكي/الحنبلي)", s.madhab == "HANAFI") { v ->
@@ -197,6 +208,9 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
         "videoApps" -> MultiToggleDialog("تطبيقات صف المشاهدة", apps.map { Triple(it.pkg, it.label, it.pkg in s.videoApps) },
             onToggle = { pkg -> vm.update { setVideoApps(if (pkg in s.videoApps) s.videoApps - pkg else s.videoApps + pkg) } },
             onDismiss = { dialog = "" })
+        "channels" -> TextInputDialog("معرّفات القنوات (UC...)", s.channels, hint = "UCxxxx, UCyyyy", onOk = { v ->
+            vm.update { setChannels(v) }; dialog = ""
+        }, onDismiss = { dialog = "" })
         "feed" -> TextInputDialog("رابط JSON للفيديوهات", s.feedUrl, hint = "https://...", onOk = { v ->
             vm.update { setFeedUrl(if (v.startsWith("https://") || v.isEmpty()) v else s.feedUrl) }; dialog = ""
         }, onDismiss = { dialog = "" })
@@ -211,13 +225,27 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
             onPick = { v -> vm.update { setIqama(v) }; dialog = "" }, onDismiss = { dialog = "" })
         "method" -> ChoiceDialog("طريقة الحساب", PrayerRepository.methods,
             onPick = { v -> vm.update { setMethod(v) }; dialog = "" }, onDismiss = { dialog = "" })
-        "city" -> TextInputDialog("ابحث عن مدينة", hint = "مثال: وهران", onOk = { q ->
+        "country" -> ChoiceDialog("اختر الدولة", Countries.list.map { it.code to it.name },
+            onPick = { c -> pickedCountry = c; dialog = if (c == "DZ") "wilaya" else "city" }, onDismiss = { dialog = "" })
+        "wilaya" -> ChoiceDialog("اختر الولاية", Countries.wilayas.mapIndexed { i, w -> i to "${i + 1} - ${w.name}" },
+            onPick = { i -> pickedWilaya = i; dialog = "dzcity" }, onDismiss = { dialog = "" })
+        "dzcity" -> {
+            val w = Countries.wilayas[pickedWilaya]
+            ChoiceDialog("ولاية ${w.name}", listOf("center" to "مركز الولاية — ${w.name}", "search" to "مدينة أخرى داخل الجزائر (بحث بالاسم)"),
+                onPick = { k ->
+                    if (k == "center") {
+                        vm.update { setCity(City(w.name, "ولاية ${w.name}، الجزائر", w.lat, w.lon, "Africa/Algiers")) }
+                        dialog = ""
+                    } else dialog = "city"
+                }, onDismiss = { dialog = "" })
+        }
+        "city" -> TextInputDialog("ابحث عن مدينة في ${Countries.list.first { it.code == pickedCountry }.name}", hint = "اسم المدينة", onOk = { q ->
             scope.launch {
-                cityResults = WeatherRepository.searchCities(q)
+                cityResults = WeatherRepository.searchCities(q, pickedCountry)
                 dialog = if (cityResults.isEmpty()) { msg = "لا نتائج، تحقق من الاتصال بالإنترنت أو جرّب اسماً آخر."; "" } else "cityPick"
             }
         }, onDismiss = { dialog = "" })
-        "cityPick" -> ChoiceDialog("اختر المدينة", cityResults.map { it to "${it.name} · ${it.country}" },
+        "cityPick" -> ChoiceDialog("اختر المدينة", cityResults.map { it to (it.name + if (it.country.isNotBlank()) " · ${it.country}" else "") },
             onPick = { c -> vm.update { setCity(c) }; dialog = "" }, onDismiss = { dialog = "" })
     }
     msg?.let { MessageDialog("إعدادات اللاونشر", it) { msg = null } }
