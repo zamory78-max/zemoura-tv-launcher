@@ -25,6 +25,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -55,16 +57,19 @@ object Wallpapers {
 @Composable
 fun LauncherTheme(rtl: Boolean = true, content: @Composable () -> Unit) {
     // تصميم الواجهة مبني على عرض 1600dp؛ نُكبّره/نصغّره ليملأ أي شاشة (720p/1080p/4K) بنفس المظهر
-    val widthPx = LocalContext.current.resources.displayMetrics.widthPixels
-    val scaled = Density(density = widthPx / 1600f, fontScale = 1f)
-    CompositionLocalProvider(
-        LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
-        LocalDensity provides scaled
-    ) {
-        MaterialTheme(
-            colorScheme = darkColorScheme(primary = Palette.Amber, background = Palette.Night, surface = Palette.Surface),
-            content = content
-        )
+    // نقيس عرض النافذة الفعلي (لا عرض الشاشة المُبلَّغ) كي لا تظهر أشرطة جانبية
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val widthPx = constraints.maxWidth.toFloat().coerceAtLeast(320f)
+        val scaled = Density(density = widthPx / 1600f, fontScale = 1f)
+        CompositionLocalProvider(
+            LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
+            LocalDensity provides scaled
+        ) {
+            MaterialTheme(
+                colorScheme = darkColorScheme(primary = Palette.Amber, background = Palette.Night, surface = Palette.Surface),
+                content = content
+            )
+        }
     }
 }
 

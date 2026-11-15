@@ -13,6 +13,8 @@ object WeatherRepository {
     private fun get(url: String): String {
         val c = URL(url).openConnection() as HttpURLConnection
         c.connectTimeout = 10_000; c.readTimeout = 10_000
+        c.setRequestProperty("User-Agent", "ZemouraLauncher/1.0 (Android TV)")
+        c.setRequestProperty("Accept-Language", "ar")
         return try { c.inputStream.bufferedReader().readText() } finally { c.disconnect() }
     }
 
@@ -57,6 +59,46 @@ object WeatherRepository {
             }
         }.getOrDefault(emptyList())
     }
+
+    /**
+     * بحث موسّع عن البلديات والقرى عبر OpenStreetMap (Nominatim) — يغطي ما لا تغطيه Open-Meteo.
+     * [area] اسم الولاية/المنطقة لتضييق النتائج.
+     */
+    suspend fun searchPlaces(query: String, countryCode: String, area: String? = null, tz: String = "UTC"): List<City> =
+        withContext(Dispatchers.IO) {
+            if (query.isBlank()) return@withContext emptyList()
+            val clean = query.trim().removePrefix("بلدية").trim()
+            val queries = buildList {
+                if (area != null) add("$clean، $area")
+                add(clean)
+            }
+            val out = LinkedHashMap<String, City>()
+            for (qs in queries) {
+                runCatching {
+                    val q = URLEncoder.encode(qs, "UTF-8")
+                    val arr = org.json.JSONArray(get(
+                        "https://nominatim.openstreetmap.org/search?q=$q&format=jsonv2&limit=8&addressdetails=1" +
+                            "&accept-language=ar&countrycodes=${countryCode.lowercase()}"
+                    ))
+                    for (i in 0 until arr.length()) {
+                        val o = arr.getJSONObject(i)
+                        val a = o.optJSONObject("address")
+                        val name = o.optString("name").ifBlank { o.optString("display_name").substringBefore("،") }
+                        val ctx = listOfNotNull(
+                            a?.optString("county")?.takeIf { it.isNotBlank() },
+                            a?.optString("state")?.takeIf { it.isNotBlank() },
+                            a?.optString("country")?.takeIf { it.isNotBlank() }
+                        ).distinct().joinToString("، ")
+                        val c = City(name, ctx, o.getString("lat").toDouble(), o.getString("lon").toDouble(), tz)
+                        out.putIfAbsent("%.2f,%.2f".format(c.lat, c.lon), c)
+                    }
+                }
+                if (out.size >= 5) break
+            }
+            // نتائج Open-Meteo كاحتياط
+            if (out.size < 3) searchCities(clean, countryCode).forEach { out.putIfAbsent("%.2f,%.2f".format(it.lat, it.lon), it) }
+            out.values.toList()
+        }
 
     private fun describe(code: Int) = when (code) {
         0 -> "صافٍ"

@@ -62,6 +62,8 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
     var msg by remember { mutableStateOf<String?>(null) }
     var pickedCountry by remember { mutableStateOf("DZ") }
     var pickedWilaya by remember { mutableStateOf(0) }
+    var rowSel by remember { mutableStateOf("") }
+    var manualName by remember { mutableStateOf("") }
 
     val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
@@ -118,6 +120,12 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
         }
         item {
             RowItem("شكل الأيقونات", null, shapeName(s.tileShape)) { dialog = "tileShape" }
+        }
+
+        item { Section("الصفوف المخصصة") }
+        item { RowItem("إضافة صف جديد", "مثل: ألعاب، أطفال، رياضة", "${s.rows.size}") { dialog = "newRow" } }
+        itemsIndexed(s.rows, key = { _, r -> "row:" + r.id }) { _, r ->
+            RowItem("صف «${r.name}»", "${r.pkgs.size} تطبيق — اضغط للإدارة") { rowSel = r.id; dialog = "rowMenu" }
         }
 
         item { Section("التطبيقات والفيديو") }
@@ -195,7 +203,31 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
         }
     }
 
+    val selRow = s.rows.firstOrNull { it.id == rowSel }
     when (dialog) {
+        "newRow" -> TextInputDialog("اسم الصف الجديد", hint = "مثال: ألعاب", onOk = { if (it.isNotBlank()) vm.addRow(it); dialog = "" }, onDismiss = { dialog = "" })
+        "rowMenu" -> if (selRow == null) dialog = "" else ChoiceDialog(selRow.name,
+            listOf("apps" to "اختيار تطبيقات الصف", "rename" to "تغيير الاسم", "up" to "تحريك الصف للأعلى", "down" to "تحريك الصف للأسفل", "delete" to "حذف الصف (ترجع تطبيقاته للأصل)"),
+            onDismiss = { dialog = "" }, onPick = { k ->
+                when (k) {
+                    "apps" -> dialog = "rowApps"
+                    "rename" -> dialog = "rowRename"
+                    "up" -> { vm.moveRow(selRow.id, -1); dialog = "" }
+                    "down" -> { vm.moveRow(selRow.id, +1); dialog = "" }
+                    "delete" -> { vm.deleteRow(selRow.id); dialog = "" }
+                }
+            })
+        "rowApps" -> if (selRow == null) dialog = "" else MultiToggleDialog("تطبيقات صف «${selRow.name}»",
+            apps.map { Triple(it.pkg, it.label, it.pkg in selRow.pkgs) },
+            onToggle = { pkg -> vm.toggleRowApp(selRow.id, pkg) }, onDismiss = { dialog = "" })
+        "rowRename" -> if (selRow == null) dialog = "" else TextInputDialog("اسم الصف", selRow.name,
+            onOk = { if (it.isNotBlank()) vm.renameRow(selRow.id, it); dialog = "" }, onDismiss = { dialog = "" })
+        "coords" -> TextInputDialog("إحداثيات المدينة", hint = "36.75, 3.05 (خط العرض، خط الطول)", onOk = { v ->
+            val p = v.split(',', '،', ' ').filter { it.isNotBlank() }.mapNotNull { it.toDoubleOrNull() }
+            if (p.size == 2 && p[0] in -90.0..90.0 && p[1] in -180.0..180.0) {
+                vm.update { setCity(City(manualName.ifBlank { "موقعي" }, "إحداثيات يدوية", p[0], p[1], "")) }; dialog = ""
+            } else { msg = "صيغة غير صحيحة. مثال: 36.75, 3.05"; dialog = "" }
+        }, onDismiss = { dialog = "" })
         "pin" -> PinSetup(onDone = { vm.setPin(it); dialog = ""; msg = "تم حفظ الرمز السري." }, onDismiss = { dialog = "" })
         "tileScale" -> ChoiceDialog("حجم الأيقونات", listOf(0 to "صغير", 1 to "متوسط", 2 to "كبير"),
             onPick = { v -> vm.update { setTileScale(v) }; dialog = "" }, onDismiss = { dialog = "" })
@@ -231,18 +263,22 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
             onPick = { i -> pickedWilaya = i; dialog = "dzcity" }, onDismiss = { dialog = "" })
         "dzcity" -> {
             val w = Countries.wilayas[pickedWilaya]
-            ChoiceDialog("ولاية ${w.name}", listOf("center" to "مركز الولاية — ${w.name}", "search" to "مدينة أخرى داخل الجزائر (بحث بالاسم)"),
+            ChoiceDialog("ولاية ${w.name}", listOf("center" to "مركز الولاية — ${w.name}", "search" to "بحث عن بلدية / مدينة / قرية في ولاية ${w.name}", "manual" to "إدخال الإحداثيات يدوياً (دقيق لأي بلدية)"),
                 onPick = { k ->
                     if (k == "center") {
                         vm.update { setCity(City(w.name, "ولاية ${w.name}، الجزائر", w.lat, w.lon, "Africa/Algiers")) }
                         dialog = ""
-                    } else dialog = "city"
+                    } else if (k == "manual") dialog = "manualName" else dialog = "city"
                 }, onDismiss = { dialog = "" })
         }
-        "city" -> TextInputDialog("ابحث عن مدينة في ${Countries.list.first { it.code == pickedCountry }.name}", hint = "اسم المدينة", onOk = { q ->
+        "manualName" -> TextInputDialog("اسم البلدية (للعرض)", hint = "أولاد بن عبد القادر", onOk = { manualName = it; dialog = "coords" }, onDismiss = { dialog = "" })
+        "city" -> TextInputDialog("ابحث عن بلدية أو مدينة في ${Countries.list.first { it.code == pickedCountry }.name}", hint = "اسم البلدية أو المدينة", onOk = { q ->
             scope.launch {
-                cityResults = WeatherRepository.searchCities(q, pickedCountry)
-                dialog = if (cityResults.isEmpty()) { msg = "لا نتائج، تحقق من الاتصال بالإنترنت أو جرّب اسماً آخر."; "" } else "cityPick"
+                msg = null
+                val area = if (pickedCountry == "DZ") "ولاية " + Countries.wilayas[pickedWilaya].name else null
+                val tz = if (pickedCountry == "DZ") "Africa/Algiers" else "UTC"
+                cityResults = WeatherRepository.searchPlaces(q, pickedCountry, area, tz)
+                dialog = if (cityResults.isEmpty()) { msg = "لا نتائج. جرّب كتابة الاسم بدون «بلدية»، أو بالحروف اللاتينية، أو أدخل الإحداثيات يدوياً."; "" } else "cityPick"
             }
         }, onDismiss = { dialog = "" })
         "cityPick" -> ChoiceDialog("اختر المدينة", cityResults.map { it to (it.name + if (it.country.isNotBlank()) " · ${it.country}" else "") },

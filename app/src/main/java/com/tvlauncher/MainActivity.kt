@@ -31,6 +31,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // ملء الشاشة بالكامل وإخفاء أي أشرطة نظام
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+        if (android.os.Build.VERSION.SDK_INT >= 28) window.attributes = window.attributes.apply {
+            layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE

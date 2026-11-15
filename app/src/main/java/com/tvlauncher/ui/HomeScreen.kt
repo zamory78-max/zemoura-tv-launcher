@@ -123,7 +123,7 @@ fun HomeScreen(
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
-            contentPadding = PaddingValues(horizontal = 56.dp, vertical = 28.dp),
+            contentPadding = PaddingValues(horizontal = 40.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(22.dp)
         ) {
             item {
@@ -156,12 +156,12 @@ fun HomeScreen(
             item {
                 AppsRow("التطبيقات", supported, s, style, rtl, moving, vm::moveApp, { moving = null },
                     onClick = onAppClick, onLong = { menuFor = it },
-                    onAdd = { pickMain = true }, onNewRow = { newRow = true })
+                    onAdd = { pickMain = true })
             }
             items(s.rows, key = { "row:" + it.id }) { row ->
                 AppsRow(row.name, visible.filter { it.pkg in row.pkgs }, s, style, rtl, moving, vm::moveApp, { moving = null },
                     onClick = onAppClick, onLong = { menuFor = it },
-                    onAdd = { pickRow = row.id }, onManage = { rowMenu = row })
+                    onAdd = { pickRow = row.id })
             }
 
             item {
@@ -305,8 +305,6 @@ private fun AppsRow(
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
             SectionTitle(title)
-            if (onManage != null) Chip("إدارة الصف", onManage)
-            if (onNewRow != null) Chip("+ صف جديد", onNewRow)
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
             items(list, key = { it.pkg }) { app ->
