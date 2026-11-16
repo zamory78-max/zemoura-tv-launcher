@@ -32,7 +32,7 @@ data class Settings(
     val pipedInstance: String = "https://pipedapi.kavin.rocks",
     val rows: List<CustomRow> = emptyList(),      // الصفوف المخصصة
     val layoutRtl: Boolean = true,                // اتجاه الواجهة: من اليمين لليسار
-    val channels: String = "",                   // معرّفات قنوات يوتيوب (UC...) مفصولة بفاصلة
+    val channels: String = "@cuisinedadah, @OumWalidcuisine, @oumanes1395, @AlmajdKids, @omarimmobilier",
     val feedUrl: String = "",                    // رابط JSON لمصدر فيديو مخصص
     val appOrder: List<String> = emptyList(),     // ترتيب التطبيقات (أسماء الحزم)
     val folders: List<Folder> = emptyList(),
