@@ -148,7 +148,7 @@ fun HomeScreen(
                 onEdit = { if (editMode) { editMode = false; moving = null } else protectEdit { editMode = true; moving = null } },
                 onSettings = { if (s.protectSettings && vm.hasPin) guard("الإعدادات محمية", onSettings) else onSettings() },
                 onMessage = { a, b -> info = a to b })
-            if (s.showNews) NewsTicker(news, Modifier.fillMaxWidth())
+            if (s.showNews) NewsTicker(news, s.newsDir == "right", Modifier.fillMaxWidth())
             if (editMode) Text("وضع التعديل: اضغط OK على أي تطبيق أو مجلد لنقله أو إخفائه أو حذفه. اضغط «تم التعديل» للخروج.",
                 color = Palette.Amber, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
@@ -307,8 +307,9 @@ private fun TopBar(
             Column {
                 Text("Zemoura Launcher", color = Palette.Amber, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Text(SimpleDateFormat("HH:mm", Locale.US).format(now), color = Palette.Text, fontSize = 68.sp, fontWeight = FontWeight.ExtraBold)
+                Text(SimpleDateFormat("EEEE، d MMMM", LATIN_AR).format(now), color = Palette.Muted, fontSize = 20.sp)
             }
-            Text(SimpleDateFormat("EEEE، d MMMM", LATIN_AR).format(now), color = Palette.Muted, fontSize = 24.sp, modifier = Modifier.weight(1f))
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) { GiftBox(s.names) }
             NetworkChip()
             InputsChip(onMessage)
             BoostChip(onMessage)

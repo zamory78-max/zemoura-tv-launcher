@@ -1,0 +1,16 @@
+[
+  {
+    "title": "عنوان الفيديو الأول",
+    "channel": "اسم القناة",
+    "thumb": "https://i.ytimg.com/vi/VIDEO_ID/hqdefault.jpg",
+    "link": "https://www.youtube.com/watch?v=VIDEO_ID",
+    "duration": "12:30"
+  },
+  {
+    "title": "عنوان الفيديو الثاني",
+    "channel": "اسم القناة",
+    "thumb": "https://i.ytimg.com/vi/VIDEO_ID_2/hqdefault.jpg",
+    "link": "https://www.youtube.com/watch?v=VIDEO_ID_2",
+    "duration": "08:05"
+  }
+]

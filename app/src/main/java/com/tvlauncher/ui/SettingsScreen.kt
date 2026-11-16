@@ -83,7 +83,7 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
     }
     val roleLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
 
-    val allCats = listOf("الحماية", "المظهر", "الأخبار", "الصفوف المخصصة", "التطبيقات والفيديو", "الخلفية", "الموقع والصلاة", "الإقلاع واللاونشر الافتراضي", "التسريع")
+    val allCats = listOf("الحماية", "المظهر", "الأخبار", "صندوق الأسماء", "الصفوف المخصصة", "التطبيقات والفيديو", "الخلفية", "الموقع والصلاة", "الإقلاع واللاونشر الافتراضي", "التسريع")
     Row(Modifier.fillMaxSize()) {
         Column(
             Modifier.width(380.dp).fillMaxHeight().background(Color(0x66000000)).verticalScroll(rememberScrollState()).padding(24.dp),
@@ -148,9 +148,15 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
         }
         if (cat == "الأخبار") {
             item { Section("الأخبار") }
+            item { RowItem("اتجاه حركة الشريط", null, if (s.newsDir == "right") "نحو اليمين ←" else "→ نحو اليسار") { vm.update { setNewsDir(if (s.newsDir == "right") "left" else "right") } } }
             item { ToggleItem("شريط الأخبار", "يظهر تحت مواقيت الصلاة", s.showNews) { v -> vm.update { setShowNews(v) } } }
             item { RowItem("مصدر الأخبار (رابط RSS)", s.newsUrl.take(50), "تغيير") { dialog = "newsUrl" } }
 
+        }
+        if (cat == "صندوق الأسماء") {
+            item { Section("صندوق الأسماء") }
+            item { RowItem("أسماء الأسرة (حتى 20 اسماً)", "يفتح صندوق الهدايا كل فترة ويُخرج اسماً منها", "${s.names.split(',', '،', '\n').count { it.isNotBlank() }.coerceAtMost(20)}") { dialog = "names" } }
+            item { Text("اكتب الأسماء مفصولة بفاصلة، مثل: أحمد، سارة، يوسف. اضغط على الصندوق في الرئيسية لفتحه فوراً.", color = Palette.Muted, fontSize = 18.sp) }
         }
         if (cat == "الصفوف المخصصة") {
             item { Section("الصفوف المخصصة") }
@@ -288,6 +294,7 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
         "wpSet" -> MultiToggleDialog("الخلفيات المشمولة", Wallpapers.all().map { (k, n) -> Triple(k, n, k in s.wallpaperSet) },
             onToggle = { k -> vm.update { setWallpaperSet(if (k in s.wallpaperSet) s.wallpaperSet - k else s.wallpaperSet + k) } },
             onDismiss = { dialog = "" })
+        "names" -> TextInputDialog("أسماء الأسرة", s.names, hint = "أحمد، سارة، يوسف", onOk = { vm.update { setNames(it.trim()) }; dialog = "" }, onDismiss = { dialog = "" })
         "newsUrl" -> TextInputDialog("رابط RSS للأخبار", s.newsUrl, hint = "https://...", onOk = { vm.update { setNewsUrl(it.trim()) }; dialog = "" }, onDismiss = { dialog = "" })
         "newRow" -> TextInputDialog("اسم الصف الجديد", hint = "مثال: ألعاب", onOk = { if (it.isNotBlank()) vm.addRow(it); dialog = "" }, onDismiss = { dialog = "" })
         "rowMenu" -> if (selRow == null) dialog = "" else ChoiceDialog(selRow.name,

@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -135,7 +136,7 @@ fun BoostChip(onMessage: (String, String) -> Unit) {
 /** شريط الأخبار المتحرك. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun NewsTicker(headlines: List<String>, modifier: Modifier = Modifier) {
+fun NewsTicker(headlines: List<String>, moveRight: Boolean, modifier: Modifier = Modifier) {
     if (headlines.isEmpty()) return
     val text = remember(headlines) { headlines.joinToString("   •   ") }
     Row(
@@ -144,7 +145,68 @@ fun NewsTicker(headlines: List<String>, modifier: Modifier = Modifier) {
     ) {
         Text("أخبار", color = Palette.AmberText, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold,
             modifier = Modifier.background(Palette.Amber).padding(horizontal = 22.dp, vertical = 10.dp))
-        Text(text, color = Color.White, fontSize = 22.sp, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip,
-            modifier = Modifier.weight(1f).padding(horizontal = 16.dp).basicMarquee(iterations = Int.MAX_VALUE, velocity = 55.dp))
+        // اتجاه الحركة يتبع اتجاه التخطيط: Rtl ← نحو اليمين، Ltr ← نحو اليسار
+        androidx.compose.runtime.CompositionLocalProvider(
+            androidx.compose.ui.platform.LocalLayoutDirection provides
+                if (moveRight) androidx.compose.ui.unit.LayoutDirection.Rtl else androidx.compose.ui.unit.LayoutDirection.Ltr
+        ) {
+            Text(text, color = Color.White, fontSize = 22.sp, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip,
+                modifier = Modifier.weight(1f).padding(horizontal = 16.dp).basicMarquee(iterations = Int.MAX_VALUE, velocity = 55.dp))
+        }
+    }
+}
+
+
+/** صندوق هدايا يفتح كل فترة ويُخرج اسماً من الأسماء التي اختارها المستخدم. */
+@Composable
+fun GiftBox(namesRaw: String, modifier: Modifier = Modifier) {
+    val names = remember(namesRaw) { namesRaw.split(',', '،', '\n').map { it.trim() }.filter { it.isNotEmpty() }.take(20) }
+    if (names.isEmpty()) return
+    val greetings = remember { listOf("مرحباً يا %s", "أهلاً بك يا %s", "نوّرت يا %s", "يوماً سعيداً يا %s", "بارك الله فيك يا %s", "حفظك الله يا %s") }
+    var current by remember { mutableStateOf("") }
+    val open = remember { androidx.compose.animation.core.Animatable(0f) }
+    var order by remember(names) { mutableStateOf(names.shuffled()) }
+    var idx by remember(names) { mutableStateOf(0) }
+    var tick by remember { mutableStateOf(0) }       // يزيد عند الضغط لفتح الصندوق فوراً
+
+    LaunchedEffect(names, tick) {
+        if (tick == 0) kotlinx.coroutines.delay(4000)
+        while (true) {
+            if (idx >= order.size) { order = names.shuffled(); idx = 0 }
+            current = greetings.random().format(order[idx]); idx++
+            open.animateTo(1f, androidx.compose.animation.core.tween(700))
+            kotlinx.coroutines.delay(6000)
+            open.animateTo(0f, androidx.compose.animation.core.tween(500))
+            kotlinx.coroutines.delay(14000)
+        }
+    }
+    val o = open.value
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Focusable(onClick = { tick++ }, shape = RoundedCornerShape(20.dp), bg = Color(0x22FFFFFF)) {
+            Canvas(Modifier.padding(8.dp).size(76.dp)) {
+                val u = size.minDimension
+                val body = Color(0xFFE04F5F); val ribbon = Color(0xFFF2B84B)
+                drawRoundRect(body, Offset(u * 0.12f, u * 0.44f), Size(u * 0.76f, u * 0.50f), CornerRadius(u * 0.06f))
+                drawRect(ribbon, Offset(u * 0.44f, u * 0.44f), Size(u * 0.12f, u * 0.50f))
+                // الغطاء يرتفع ويميل عند الفتح
+                androidx.compose.ui.graphics.drawscope.withTransform({
+                    translate(left = u * 0.10f * o, top = -u * 0.22f * o)
+                    rotate(-18f * o, pivot = Offset(u * 0.12f, u * 0.44f))
+                }) {
+                    drawRoundRect(body, Offset(u * 0.06f, u * 0.28f), Size(u * 0.88f, u * 0.18f), CornerRadius(u * 0.05f))
+                    drawRect(ribbon, Offset(u * 0.44f, u * 0.28f), Size(u * 0.12f, u * 0.18f))
+                    drawCircle(ribbon, u * 0.07f, Offset(u * 0.40f, u * 0.24f))
+                    drawCircle(ribbon, u * 0.07f, Offset(u * 0.60f, u * 0.24f))
+                }
+                // شرارات
+                if (o > 0.2f) for (i in 0..3) {
+                    val a = Math.toRadians(-60.0 + i * 40.0)
+                    val r = u * (0.30f + 0.25f * o)
+                    drawCircle(Color(0xFFFFE08A), u * 0.025f, Offset(u * 0.5f + (r * Math.cos(a)).toFloat(), u * 0.35f + (r * Math.sin(a)).toFloat()))
+                }
+            }
+        }
+        Text(current, color = Palette.Amber, fontSize = (30 * (0.6f + 0.4f * o)).sp, fontWeight = FontWeight.ExtraBold, maxLines = 1,
+            modifier = Modifier.graphicsLayer { alpha = o; scaleX = 0.7f + 0.3f * o; scaleY = 0.7f + 0.3f * o })
     }
 }

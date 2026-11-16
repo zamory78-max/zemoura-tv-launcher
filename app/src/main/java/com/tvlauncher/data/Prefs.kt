@@ -40,7 +40,9 @@ data class Settings(
     val wallpaperMinutes: Int = 10,
     val wallpaperSet: Set<String> = emptySet(),   // الخلفيات المشمولة بالتغيير التلقائي
     val showNews: Boolean = true,
-    val newsUrl: String = DEFAULT_NEWS_URL
+    val newsUrl: String = DEFAULT_NEWS_URL,
+    val newsDir: String = "right",                // اتجاه حركة الشريط: right | left
+    val names: String = ""                        // أسماء صندوق الهدايا (مفصولة بفاصلة أو سطر)
 )
 
 class Prefs(private val context: Context) {
@@ -77,6 +79,8 @@ class Prefs(private val context: Context) {
         val wpSet = stringSetPreferencesKey("wp_set")
         val showNews = booleanPreferencesKey("show_news")
         val newsUrl = stringPreferencesKey("news_url")
+        val newsDir = stringPreferencesKey("news_dir")
+        val names = stringPreferencesKey("names")
     }
 
     val flow: Flow<Settings> = context.store.data.map { p ->
@@ -113,7 +117,9 @@ class Prefs(private val context: Context) {
             wallpaperMinutes = p[K.wpMinutes] ?: d.wallpaperMinutes,
             wallpaperSet = p[K.wpSet] ?: d.wallpaperSet,
             showNews = p[K.showNews] ?: d.showNews,
-            newsUrl = p[K.newsUrl] ?: d.newsUrl
+            newsUrl = p[K.newsUrl] ?: d.newsUrl,
+            newsDir = p[K.newsDir] ?: d.newsDir,
+            names = p[K.names] ?: d.names
         )
     }
 
@@ -150,6 +156,9 @@ class Prefs(private val context: Context) {
 
     suspend fun setShowNews(v: Boolean) = edit { it[K.showNews] = v }
     suspend fun setNewsUrl(v: String) = edit { it[K.newsUrl] = v }
+
+    suspend fun setNewsDir(v: String) = edit { it[K.newsDir] = v }
+    suspend fun setNames(v: String) = edit { it[K.names] = v }
 
     private suspend fun edit(block: (MutablePreferences) -> Unit) {
         context.store.edit { block(it) }
