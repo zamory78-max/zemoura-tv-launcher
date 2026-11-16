@@ -11,6 +11,7 @@ import android.net.wifi.WifiManager
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -207,7 +208,21 @@ fun GiftBox(namesRaw: String, modifier: Modifier = Modifier) {
                 }
             }
         }
-        Text(current, color = Palette.Amber, fontSize = (30 * (0.6f + 0.4f * o)).sp, fontWeight = FontWeight.ExtraBold, maxLines = 1,
-            modifier = Modifier.graphicsLayer { alpha = o; scaleX = 0.7f + 0.3f * o; scaleY = 0.7f + 0.3f * o })
+        val shimmer = androidx.compose.animation.core.rememberInfiniteTransition(label = "gift")
+        val sh by shimmer.animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(2600, easing = androidx.compose.animation.core.LinearEasing), androidx.compose.animation.core.RepeatMode.Reverse), label = "sh")
+        if (o > 0.01f) Row(
+            Modifier.graphicsLayer { alpha = o; scaleX = 0.6f + 0.4f * o; scaleY = 0.6f + 0.4f * o }
+                .clip(RoundedCornerShape(50))
+                .background(androidx.compose.ui.graphics.Brush.horizontalGradient(
+                    listOf(Color(0xFF7C4DFF), Color(0xFFE040FB), Color(0xFFFF5C8D), Color(0xFFFFA14A)),
+                    startX = -300f + 600f * sh, endX = 500f + 600f * sh, tileMode = androidx.compose.ui.graphics.TileMode.Mirror))
+                .border(2.dp, Color(0x99FFFFFF), RoundedCornerShape(50))
+                .padding(horizontal = 26.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("✨", fontSize = 26.sp)
+            Text(current, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+            Text("🎉", fontSize = 26.sp)
+        }
     }
 }

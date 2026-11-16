@@ -319,9 +319,9 @@ private fun TopBar(
             PillButton(if (editMode) "تم التعديل" else "تعديل", primary = editMode, onClick = onEdit)
             PillButton("الإعدادات", onClick = onSettings)
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.Top) {
-            WeatherCard(weather, s.city.name, Modifier.weight(0.85f))
-            PrayerCard(s, now, Modifier.weight(1.15f))
+        Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.Top) {
+            WeatherCard(weather, s.city.name, Modifier.weight(0.85f).fillMaxHeight())
+            PrayerCard(s, now, Modifier.weight(1.15f).fillMaxHeight())
         }
     }
 }

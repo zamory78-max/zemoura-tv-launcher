@@ -49,32 +49,32 @@ private fun weatherBrush(w: WeatherInfo?): Brush {
 @Composable
 fun WeatherCard(w: WeatherInfo?, city: String, modifier: Modifier = Modifier) {
     Column(
-        modifier.clip(RoundedCornerShape(30.dp)).background(weatherBrush(w)).padding(horizontal = 28.dp, vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        modifier.clip(RoundedCornerShape(30.dp)).background(weatherBrush(w)).padding(horizontal = 24.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.CenterVertically) {
-            WeatherIcon(w?.code ?: 0, w?.isDay ?: true, 112.dp)
+            WeatherIcon(w?.code ?: 0, w?.isDay ?: true, 84.dp)
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(city, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                Text(w?.let { "${it.tempC}°" } ?: "--°", color = Color.White, fontSize = 72.sp, fontWeight = FontWeight.ExtraBold)
-                Text(w?.description ?: "جارٍ التحديث…", color = Color(0xFFE6EEF9), fontSize = 22.sp)
+                Text(city, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(w?.let { "${it.tempC}°" } ?: "--°", color = Color.White, fontSize = 54.sp, fontWeight = FontWeight.ExtraBold)
+                Text(w?.description ?: "جارٍ التحديث…", color = Color(0xFFE6EEF9), fontSize = 18.sp)
             }
             if (w != null) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("↑${w.maxC}°   ↓${w.minC}°", color = Color(0xFFE6EEF9), fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Text("رطوبة ${w.humidity}%", color = Color(0xFFE6EEF9), fontSize = 18.sp)
-                Text("رياح ${w.windKmh} كم/س", color = Color(0xFFE6EEF9), fontSize = 18.sp)
+                Text("↑${w.maxC}°   ↓${w.minC}°", color = Color(0xFFE6EEF9), fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                Text("رطوبة ${w.humidity}%", color = Color(0xFFE6EEF9), fontSize = 16.sp)
+                Text("رياح ${w.windKmh} كم/س", color = Color(0xFFE6EEF9), fontSize = 16.sp)
             }
         }
         if (w != null && w.days.isNotEmpty()) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             w.days.forEach { d ->
                 Row(
-                    Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(Color(0x26FFFFFF)).padding(horizontal = 10.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically
+                    Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(Color(0x26FFFFFF)).padding(horizontal = 8.dp, vertical = 5.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically
                 ) {
-                    WeatherIcon(d.code, true, 44.dp, animated = false)
+                    WeatherIcon(d.code, true, 36.dp, animated = false)
                     Column {
-                        Text(d.label, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                        Text("${d.maxC}° / ${d.minC}°", color = Color(0xFFE6EEF9), fontSize = 17.sp, maxLines = 1)
+                        Text(d.label, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text("${d.maxC}° / ${d.minC}°", color = Color(0xFFE6EEF9), fontSize = 15.sp, maxLines = 1)
                     }
                 }
             }
