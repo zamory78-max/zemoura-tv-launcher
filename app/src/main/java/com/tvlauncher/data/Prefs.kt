@@ -38,7 +38,9 @@ data class Settings(
     val folders: List<Folder> = emptyList(),
     val wallpaperAuto: Boolean = false,           // تغيير الخلفية تلقائياً
     val wallpaperMinutes: Int = 10,
-    val wallpaperSet: Set<String> = emptySet()    // الخلفيات المشمولة بالتغيير التلقائي
+    val wallpaperSet: Set<String> = emptySet(),   // الخلفيات المشمولة بالتغيير التلقائي
+    val showNews: Boolean = true,
+    val newsUrl: String = DEFAULT_NEWS_URL
 )
 
 class Prefs(private val context: Context) {
@@ -73,6 +75,8 @@ class Prefs(private val context: Context) {
         val wpAuto = booleanPreferencesKey("wp_auto")
         val wpMinutes = intPreferencesKey("wp_minutes")
         val wpSet = stringSetPreferencesKey("wp_set")
+        val showNews = booleanPreferencesKey("show_news")
+        val newsUrl = stringPreferencesKey("news_url")
     }
 
     val flow: Flow<Settings> = context.store.data.map { p ->
@@ -107,7 +111,9 @@ class Prefs(private val context: Context) {
             folders = foldersFromJson(p[K.folders]),
             wallpaperAuto = p[K.wpAuto] ?: d.wallpaperAuto,
             wallpaperMinutes = p[K.wpMinutes] ?: d.wallpaperMinutes,
-            wallpaperSet = p[K.wpSet] ?: d.wallpaperSet
+            wallpaperSet = p[K.wpSet] ?: d.wallpaperSet,
+            showNews = p[K.showNews] ?: d.showNews,
+            newsUrl = p[K.newsUrl] ?: d.newsUrl
         )
     }
 
@@ -141,6 +147,9 @@ class Prefs(private val context: Context) {
     suspend fun setWallpaperAuto(v: Boolean) = edit { it[K.wpAuto] = v }
     suspend fun setWallpaperMinutes(v: Int) = edit { it[K.wpMinutes] = v }
     suspend fun setWallpaperSet(v: Set<String>) = edit { it[K.wpSet] = v }
+
+    suspend fun setShowNews(v: Boolean) = edit { it[K.showNews] = v }
+    suspend fun setNewsUrl(v: String) = edit { it[K.newsUrl] = v }
 
     private suspend fun edit(block: (MutablePreferences) -> Unit) {
         context.store.edit { block(it) }

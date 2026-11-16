@@ -118,7 +118,11 @@ fun Focusable(
             .scale(scale)
             .clip(shape)
             .background(bg)
-            .border(if (focused) 4.dp else 0.dp, Palette.Amber, shape)
+            // تأثير زجاجي عند التحديد: طبقة بيضاء شفافة متدرجة + حدّ ناعم
+            .then(if (focused) Modifier.background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0x59FFFFFF), Color(0x26FFFFFF))), shape
+            ) else Modifier)
+            .border(if (focused) 2.dp else 0.dp, Color(0xCCFFFFFF), shape)
             .onFocusChanged { focused = it.isFocused }
             .onKeyEvent { e ->
                 val ok = e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter

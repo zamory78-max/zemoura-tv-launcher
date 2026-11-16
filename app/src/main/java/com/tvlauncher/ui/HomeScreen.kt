@@ -140,21 +140,23 @@ fun HomeScreen(
     fun protectEdit(action: () -> Unit) { if (editMode || !vm.hasPin) action() else guard("هذه العملية محمية بالرمز", action) }
     val onAppClick: (AppEntry) -> Unit = { if (editMode) menuFor = it else launch(it) }
 
-    Box(Modifier.fillMaxSize()) {
+    val news by vm.news.collectAsStateWithLifecycle()
+    // الرأس (الساعة والطقس والصلاة والأخبار) ثابت؛ الصفوف فقط تتحرك تحته
+    Column(Modifier.fillMaxSize()) {
+        Column(Modifier.padding(start = 40.dp, end = 40.dp, top = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            TopBar(s, weather, editMode,
+                onEdit = { if (editMode) { editMode = false; moving = null } else protectEdit { editMode = true; moving = null } },
+                onSettings = { if (s.protectSettings && vm.hasPin) guard("الإعدادات محمية", onSettings) else onSettings() },
+                onMessage = { a, b -> info = a to b })
+            if (s.showNews) NewsTicker(news, Modifier.fillMaxWidth())
+            if (editMode) Text("وضع التعديل: اضغط OK على أي تطبيق أو مجلد لنقله أو إخفائه أو حذفه. اضغط «تم التعديل» للخروج.",
+                color = Palette.Amber, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
         LazyColumn(
-            contentPadding = PaddingValues(horizontal = 40.dp, vertical = 24.dp),
+            Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 40.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(22.dp)
         ) {
-            item {
-                TopBar(s, weather, editMode,
-                    onEdit = { if (editMode) { editMode = false; moving = null } else protectEdit { editMode = true; moving = null } },
-                    onSettings = { if (s.protectSettings && vm.hasPin) guard("الإعدادات محمية", onSettings) else onSettings() })
-            }
-            if (editMode) item {
-                Text("وضع التعديل: اضغط OK على أي تطبيق أو مجلد لنقله أو إخفائه أو حذفه. اضغط «تم التعديل» للخروج.",
-                    color = Palette.Amber, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            }
-
             if (s.showVideos) item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SectionTitle("المشاهدة")
@@ -295,7 +297,7 @@ fun HomeScreen(
 @Composable
 private fun TopBar(
     s: Settings, weather: WeatherInfo?, editMode: Boolean,
-    onEdit: () -> Unit, onSettings: () -> Unit
+    onEdit: () -> Unit, onSettings: () -> Unit, onMessage: (String, String) -> Unit
 ) {
     // الساعة تُحدَّث هنا فقط كي لا يُعاد رسم الصفوف كل ثانية (سبب التقطيع)
     val now by produceState(Date()) { while (true) { value = Date(); delay(1000) } }
@@ -307,6 +309,8 @@ private fun TopBar(
                 Text(SimpleDateFormat("HH:mm", Locale.US).format(now), color = Palette.Text, fontSize = 68.sp, fontWeight = FontWeight.ExtraBold)
             }
             Text(SimpleDateFormat("EEEE، d MMMM", LATIN_AR).format(now), color = Palette.Muted, fontSize = 24.sp, modifier = Modifier.weight(1f))
+            NetworkChip()
+            InputsChip(onMessage)
             PillButton(if (editMode) "تم التعديل" else "تعديل", primary = editMode, onClick = onEdit)
             PillButton("الإعدادات", onClick = onSettings)
         }

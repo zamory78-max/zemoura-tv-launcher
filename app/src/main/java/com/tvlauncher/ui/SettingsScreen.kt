@@ -126,6 +126,10 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
             RowItem("شكل الأيقونات", null, shapeName(s.tileShape)) { dialog = "tileShape" }
         }
 
+        item { Section("الأخبار") }
+        item { ToggleItem("شريط الأخبار", "يظهر تحت مواقيت الصلاة", s.showNews) { v -> vm.update { setShowNews(v) } } }
+        item { RowItem("مصدر الأخبار (رابط RSS)", s.newsUrl.take(50), "تغيير") { dialog = "newsUrl" } }
+
         item { Section("الصفوف المخصصة") }
         item { RowItem("إضافة صف جديد", "مثل: ألعاب، أطفال، رياضة", "${s.rows.size}") { dialog = "newRow" } }
         itemsIndexed(s.rows, key = { _, r -> "row:" + r.id }) { _, r ->
@@ -231,6 +235,7 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
         "wpSet" -> MultiToggleDialog("الخلفيات المشمولة", Wallpapers.all().map { (k, n) -> Triple(k, n, k in s.wallpaperSet) },
             onToggle = { k -> vm.update { setWallpaperSet(if (k in s.wallpaperSet) s.wallpaperSet - k else s.wallpaperSet + k) } },
             onDismiss = { dialog = "" })
+        "newsUrl" -> TextInputDialog("رابط RSS للأخبار", s.newsUrl, hint = "https://...", onOk = { vm.update { setNewsUrl(it.trim()) }; dialog = "" }, onDismiss = { dialog = "" })
         "newRow" -> TextInputDialog("اسم الصف الجديد", hint = "مثال: ألعاب", onOk = { if (it.isNotBlank()) vm.addRow(it); dialog = "" }, onDismiss = { dialog = "" })
         "rowMenu" -> if (selRow == null) dialog = "" else ChoiceDialog(selRow.name,
             listOf("apps" to "اختيار تطبيقات الصف", "rename" to "تغيير الاسم", "up" to "تحريك الصف للأعلى", "down" to "تحريك الصف للأسفل", "delete" to "حذف الصف (ترجع تطبيقاته للأصل)"),

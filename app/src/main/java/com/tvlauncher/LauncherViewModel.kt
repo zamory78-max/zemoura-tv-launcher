@@ -26,6 +26,8 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _videos = MutableStateFlow<List<Video>>(emptyList())
     val videos: StateFlow<List<Video>> = _videos
+    private val _news = MutableStateFlow<List<String>>(emptyList())
+    val news: StateFlow<List<String>> = _news
 
     private val _loaded = MutableStateFlow(false)
     val loaded: StateFlow<Boolean> = _loaded
@@ -35,6 +37,17 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         refreshApps()
+        // الأخبار: تحديث كل 20 دقيقة أو عند تغيير الرابط/التفعيل
+        viewModelScope.launch {
+            settings.map { it.showNews to it.newsUrl }.distinctUntilChanged().collectLatest { (on, url) ->
+                if (!on || url.isBlank()) { _news.value = emptyList(); return@collectLatest }
+                while (true) {
+                    val h = NewsRepository.headlines(url)
+                    if (h.isNotEmpty()) _news.value = h
+                    delay(20 * 60_000L)
+                }
+            }
+        }
         // الطقس: تحديث عند تغيّر المدينة ثم كل 30 دقيقة
         viewModelScope.launch {
             settings.map { it.city }.distinctUntilChanged().collectLatest { city ->
