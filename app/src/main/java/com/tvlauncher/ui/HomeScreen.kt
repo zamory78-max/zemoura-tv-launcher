@@ -109,6 +109,7 @@ fun HomeScreen(
     val apps by vm.apps.collectAsStateWithLifecycle()
     val weather by vm.weather.collectAsStateWithLifecycle()
     val videos by vm.videos.collectAsStateWithLifecycle()
+    val videoError by vm.videoError.collectAsStateWithLifecycle()
 
     var menuFor by remember { mutableStateOf<AppEntry?>(null) }
     var newFolder by remember { mutableStateOf(false) }
@@ -160,6 +161,8 @@ fun HomeScreen(
             if (s.showVideos) item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SectionTitle("المشاهدة")
+                    if (videos.isEmpty()) Text(if (videoError.isBlank()) "جارٍ تحميل الفيديوهات…" else "تعذّر تحميل الفيديوهات (تُعاد المحاولة تلقائياً): $videoError",
+                        color = Color(0x99FFFFFF), fontSize = 16.sp, modifier = Modifier.padding(horizontal = 8.dp))
                     if (videos.isNotEmpty()) LazyRow(modifier = Modifier.focusRestorer(), horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
                         items(videos, key = { it.id }) { v -> VideoCard(v) { VideoRepository.play(ctx, v) } }
                     }

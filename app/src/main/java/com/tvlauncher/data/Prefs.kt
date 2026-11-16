@@ -110,7 +110,7 @@ class Prefs(private val context: Context) {
             feedUrl = p[K.feedUrl] ?: d.feedUrl,
             rows = rowsFromJson(p[K.rows]),
             layoutRtl = p[K.layoutRtl] ?: d.layoutRtl,
-            channels = p[K.channels] ?: d.channels,
+            channels = p[K.channels]?.takeIf { it.isNotBlank() } ?: d.channels,
             appOrder = (p[K.appOrder] ?: "").split("\n").filter { it.isNotEmpty() },
             folders = foldersFromJson(p[K.folders]),
             wallpaperAuto = p[K.wpAuto] ?: d.wallpaperAuto,

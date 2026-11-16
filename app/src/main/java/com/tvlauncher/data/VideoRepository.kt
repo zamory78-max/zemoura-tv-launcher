@@ -28,6 +28,8 @@ object VideoRepository {
     }
 
     private val idCache = HashMap<String, String>()
+    /** آخر سبب لفشل جلب الفيديوهات (للعرض على الشاشة). */
+    @Volatile var lastError: String = ""
     private const val UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
 
     private fun httpGet(url: String): String {
@@ -44,15 +46,23 @@ object VideoRepository {
         Regex("""^(UC[\w-]{22})$""").find(src)?.let { return it.groupValues[1] }
         Regex("""/channel/(UC[\w-]{22})""").find(src)?.let { return it.groupValues[1] }
         idCache[src]?.let { return it }
-        val page = when {
+        val base = when {
             src.startsWith("http") -> src.substringBefore("?").removeSuffix("/")
             src.startsWith("@") -> "https://www.youtube.com/$src"
             else -> "https://www.youtube.com/@$src"
         }
-        val html = httpGet(page)
-        val id = Regex("""<link rel="canonical" href="https://www\.youtube\.com/channel/(UC[\w-]{22})"""").find(html)?.groupValues?.get(1)
-            ?: Regex(""""externalId":"(UC[\w-]{22})"""").find(html)?.groupValues?.get(1)
-            ?: Regex(""""channelId":"(UC[\w-]{22})"""").find(html)?.groupValues?.get(1)
+        val pages = listOf(base, base.replace("://www.", "://m."), "$base/about", "$base/videos")
+        var id: String? = null
+        for (page in pages) {
+            val html = try { httpGet(page) } catch (e: Exception) { lastError = "$src: ${e.javaClass.simpleName} ${e.message.orEmpty().take(60)}"; continue }
+            id = Regex("""<link rel="canonical" href="https://www\.youtube\.com/channel/(UC[\w-]{22})"""").find(html)?.groupValues?.get(1)
+                ?: Regex(""""externalId":"(UC[\w-]{22})"""").find(html)?.groupValues?.get(1)
+                ?: Regex(""""channelId":"(UC[\w-]{22})"""").find(html)?.groupValues?.get(1)
+                ?: Regex("""channel_id=(UC[\w-]{22})""").find(html)?.groupValues?.get(1)
+                ?: Regex("""/channel/(UC[\w-]{22})""").find(html)?.groupValues?.get(1)
+            if (id != null) break
+            lastError = "$src: لم يُعثر على معرّف القناة في الصفحة"
+        }
         if (id != null) idCache[src] = id
         return id
     }
@@ -90,7 +100,7 @@ object VideoRepository {
                     }
                 }
                 out
-            }.getOrDefault(emptyList())
+            }.getOrElse { lastError = "${it.javaClass.simpleName} ${it.message.orEmpty().take(60)}"; emptyList() }
         }.sortedByDescending { it.first }.map { it.second }.take(20)
     }
 

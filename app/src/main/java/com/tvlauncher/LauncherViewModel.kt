@@ -26,6 +26,8 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _videos = MutableStateFlow<List<Video>>(emptyList())
     val videos: StateFlow<List<Video>> = _videos
+    private val _videoError = MutableStateFlow("")
+    val videoError: StateFlow<String> = _videoError
     private val _news = MutableStateFlow<List<String>>(emptyList())
     val news: StateFlow<List<String>> = _news
 
@@ -63,8 +65,11 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
                 .collectLatest { v ->
                     val on = v[0] as Boolean; val key = v[1] as String; val region = v[2] as String; val piped = v[3] as String; val feed = v[4] as String; val channels = v[5] as String
                     while (true) {
+                        VideoRepository.lastError = ""
                         _videos.value = if (on) VideoRepository.all(key, region, piped, feed, channels) else emptyList()
-                        delay(60 * 60_000L)
+                        _videoError.value = if (_videos.value.isEmpty() && on) VideoRepository.lastError.ifBlank { "لا اتصال أو لا توجد فيديوهات" } else ""
+                        // إن فشل الجلب (مثلاً الشبكة لم تجهز عند الإقلاع) أعد المحاولة بعد 20 ثانية
+                        delay(if (_videos.value.isEmpty()) 20_000L else 60 * 60_000L)
                     }
                 }
         }
