@@ -311,6 +311,7 @@ private fun TopBar(
             Text(SimpleDateFormat("EEEE، d MMMM", LATIN_AR).format(now), color = Palette.Muted, fontSize = 24.sp, modifier = Modifier.weight(1f))
             NetworkChip()
             InputsChip(onMessage)
+            BoostChip(onMessage)
             PillButton(if (editMode) "تم التعديل" else "تعديل", primary = editMode, onClick = onEdit)
             PillButton("الإعدادات", onClick = onSettings)
         }

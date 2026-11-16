@@ -8,6 +8,9 @@ import android.os.Build
 import android.provider.Settings as AndroidSettings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.tvlauncher.data.Booster
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -68,6 +71,9 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
     var pickedWilaya by remember { mutableStateOf(0) }
     var rowSel by remember { mutableStateOf("") }
     var manualName by remember { mutableStateOf("") }
+    var cat by remember { mutableStateOf("الحماية") }
+    var boostTick by remember { mutableStateOf(0) }
+    var boosting by remember { mutableStateOf(false) }
 
     val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
@@ -77,154 +83,201 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
     }
     val roleLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
 
-    LazyColumn(
-        Modifier.fillMaxSize(), contentPadding = PaddingValues(48.dp), verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                PillButton("رجوع", onClick = onBack)
-                Text("إعدادات اللاونشر", color = Palette.Text, fontSize = 40.sp, fontWeight = FontWeight.ExtraBold)
-            }
-        }
-
-        item { Section("الحماية") }
-        item {
-            ToggleItem("حماية الإعدادات بالرمز", "يُطلب الرمز قبل فتح هذه الصفحة", s.protectSettings) { v ->
-                if (!vm.hasPin) msg = "عيّن رمزاً سرياً أولاً." else guard("تأكيد الرمز") { vm.update { setProtectSettings(v) } }
-            }
-        }
-        item {
-            RowItem(if (vm.hasPin) "تغيير الرمز السري" else "تعيين رمز سري", "4 أرقام، يحمي الإعدادات والتطبيقات والمجلدات المقفلة") {
-                if (vm.hasPin) guard("أدخل الرمز الحالي") { dialog = "pin" } else dialog = "pin"
-            }
-        }
-        item {
-            RowItem("قفل التطبيقات", "اختر التطبيقات التي تُطلب لها الرمز قبل التشغيل", "${s.lockedApps.size}") {
-                if (!vm.hasPin) msg = "عيّن رمزاً سرياً أولاً." else dialog = "lockApps"
-            }
-        }
-        item {
-            RowItem("قفل المجلدات", "اختر المجلدات التي تُطلب لها الرمز قبل الفتح", "${s.folders.count { it.locked }}") {
-                if (!vm.hasPin) msg = "عيّن رمزاً سرياً أولاً." else dialog = "lockFolders"
-            }
-        }
-        item {
-            RowItem("إظهار التطبيقات المخفية", "يعيد إظهار كل ما أخفيته", "${s.hiddenApps.size}") {
-                guard("تأكيد الرمز") { vm.update { setHiddenApps(emptySet()) } }
-            }
-        }
-
-        item { Section("المظهر") }
-        item {
-            RowItem("اتجاه الواجهة والتنقل", if (s.layoutRtl) "من اليمين إلى اليسار" else "من اليسار إلى اليمين",
-                if (s.layoutRtl) "يمين ← يسار" else "يسار ← يمين") { vm.update { setLayoutRtl(!s.layoutRtl) } }
-        }
-        item {
-            RowItem("حجم الأيقونات", null, listOf("صغير", "متوسط", "كبير")[s.tileScale.coerceIn(0, 2)]) { dialog = "tileScale" }
-        }
-        item {
-            RowItem("شكل الأيقونات", null, shapeName(s.tileShape)) { dialog = "tileShape" }
-        }
-
-        item { Section("الأخبار") }
-        item { ToggleItem("شريط الأخبار", "يظهر تحت مواقيت الصلاة", s.showNews) { v -> vm.update { setShowNews(v) } } }
-        item { RowItem("مصدر الأخبار (رابط RSS)", s.newsUrl.take(50), "تغيير") { dialog = "newsUrl" } }
-
-        item { Section("الصفوف المخصصة") }
-        item { RowItem("إضافة صف جديد", "مثل: ألعاب، أطفال، رياضة", "${s.rows.size}") { dialog = "newRow" } }
-        itemsIndexed(s.rows, key = { _, r -> "row:" + r.id }) { _, r ->
-            RowItem("صف «${r.name}»", "${r.pkgs.size} تطبيق — اضغط للإدارة") { rowSel = r.id; dialog = "rowMenu" }
-        }
-
-        item { Section("التطبيقات والفيديو") }
-        item {
-            ToggleItem("إظهار التطبيقات غير المدعومة", "التطبيقات المصممة للهاتف وبلا واجهة تلفاز؛ تظهر في صف منفصل بوسم «غير مدعوم»",
-                s.showUnsupported) { v -> vm.update { setShowUnsupported(v) } }
-        }
-        item { ToggleItem("صف المشاهدة", "يعرض تطبيقات المشاهدة التي تختارها وفيديوهات يوتيوب", s.showVideos) { v -> vm.update { setShowVideos(v) } } }
-        item {
-            RowItem("تطبيقات صف المشاهدة", "مثل يوتيوب ونتفليكس وشاهد؛ تظهر كبطاقات تفتح التطبيق مباشرة", "${s.videoApps.size}") { dialog = "videoApps" }
-        }
-        item {
-            RowItem("مفتاح YouTube Data API (اختياري)", "المفتاح يجلب الفيديوهات رسمياً من جوجل. بدونه تُجلب من مصدر Piped المفتوح (غير رسمي)",
-                if (s.youtubeKey.isBlank()) "غير مضبوط" else "مضبوط") { dialog = "ytkey" }
-        }
-        item {
-            RowItem("خادم Piped (بلا مفتاح)", "غيّره إن توقف الخادم الافتراضي", s.pipedInstance.removePrefix("https://")) { dialog = "piped" }
-        }
-        item {
-            RowItem("قنوات يوتيوب الخاصة بك", "ألصق معرّفات القنوات (تبدأ بـ UC) مفصولة بفاصلة؛ تُعرض آخر فيديوهاتها بمفتاحك",
-                if (s.channels.isBlank()) "غير مضبوطة" else "${s.channels.split(',').count { it.isNotBlank() }} قنوات") { dialog = "channels" }
-        }
-        item {
-            RowItem("مصدر فيديو مخصص (رابط JSON)", "لعرض فيديوهات تطبيقك أنت (مثل Zemoura TV) داخل الصف؛ الصيغة في README",
-                if (s.feedUrl.isBlank()) "غير مضبوط" else "مضبوط") { dialog = "feed" }
-        }
-        item { RowItem("بلد الفيديوهات", "رمز من حرفين مثل DZ أو SA أو FR", s.videoRegion) { dialog = "region" } }
-
-        item { Section("الخلفية") }
-        item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
-                items(Wallpapers.photos) { (key, name, _) ->
-                    Focusable(onClick = { vm.update { setWallpaper(key) } }, modifier = Modifier.size(180.dp, 100.dp)) {
-                        Box(Modifier.fillMaxSize()) {
-                            AsyncImage(model = Wallpapers.resId(key), contentDescription = name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                            Text(name + if (s.wallpaper == key) " ✓" else "", color = Color.White, fontSize = 18.sp,
-                                modifier = Modifier.align(Alignment.BottomCenter).background(Color(0x99000000)).fillMaxWidth().padding(6.dp))
-                        }
-                    }
-                }
-                itemsIndexed(Wallpapers.presets) { i, (name, brush) ->
-                    Focusable(onClick = { vm.update { setWallpaper("preset:$i") } }, modifier = Modifier.size(180.dp, 100.dp)) {
-                        Box(Modifier.fillMaxSize().background(brush), contentAlignment = Alignment.BottomCenter) {
-                            Text(name + if (s.wallpaper == "preset:$i") " ✓" else "", color = Palette.Text, fontSize = 18.sp, modifier = Modifier.padding(6.dp))
-                        }
-                    }
+    val allCats = listOf("الحماية", "المظهر", "الأخبار", "الصفوف المخصصة", "التطبيقات والفيديو", "الخلفية", "الموقع والصلاة", "الإقلاع واللاونشر الافتراضي", "التسريع")
+    Row(Modifier.fillMaxSize()) {
+        Column(
+            Modifier.width(380.dp).fillMaxHeight().background(Color(0x66000000)).verticalScroll(rememberScrollState()).padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("إعدادات اللاونشر", color = Palette.Text, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+            PillButton("رجوع", onClick = onBack)
+            Spacer(Modifier.height(8.dp))
+            allCats.forEach { c ->
+                Focusable(onClick = { cat = c }, modifier = Modifier.fillMaxWidth(),
+                    bg = if (c == cat) Color(0x59F2B84B) else Color(0x22FFFFFF)) {
+                    Text(c, color = if (c == cat) Palette.Amber else Palette.Text, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp))
                 }
             }
         }
-        item {
-            ToggleItem("تغيير الخلفية تلقائياً", "تتبدّل الخلفية بين الخلفيات التي تختارها أدناه", s.wallpaperAuto) { v ->
-                vm.update { setWallpaperAuto(v) }
-                if (v && s.wallpaperSet.size < 2) msg = "اختر خلفيتين على الأقل من «الخلفيات المشمولة بالتغيير»."
+        LazyColumn(
+            Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(40.dp), verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+        if (cat == "الحماية") {
+            item { Section("الحماية") }
+            item {
+                ToggleItem("حماية الإعدادات بالرمز", "يُطلب الرمز قبل فتح هذه الصفحة", s.protectSettings) { v ->
+                    if (!vm.hasPin) msg = "عيّن رمزاً سرياً أولاً." else guard("تأكيد الرمز") { vm.update { setProtectSettings(v) } }
+                }
             }
-        }
-        item { RowItem("مدة التغيير", null, "${s.wallpaperMinutes} دقيقة") { dialog = "wpMinutes" } }
-        item { RowItem("الخلفيات المشمولة بالتغيير", "اختر الخلفيات التي تتبدّل بينها", "${s.wallpaperSet.size}") { dialog = "wpSet" } }
-        item { RowItem("اختيار صورة من الجهاز", "تُحفظ ويُعاد تحميلها بعد التشغيل") { pickImage.launch(arrayOf("image/*")) } }
+            item {
+                RowItem(if (vm.hasPin) "تغيير الرمز السري" else "تعيين رمز سري", "4 أرقام، يحمي الإعدادات والتطبيقات والمجلدات المقفلة") {
+                    if (vm.hasPin) guard("أدخل الرمز الحالي") { dialog = "pin" } else dialog = "pin"
+                }
+            }
+            item {
+                RowItem("قفل التطبيقات", "اختر التطبيقات التي تُطلب لها الرمز قبل التشغيل", "${s.lockedApps.size}") {
+                    if (!vm.hasPin) msg = "عيّن رمزاً سرياً أولاً." else dialog = "lockApps"
+                }
+            }
+            item {
+                RowItem("قفل المجلدات", "اختر المجلدات التي تُطلب لها الرمز قبل الفتح", "${s.folders.count { it.locked }}") {
+                    if (!vm.hasPin) msg = "عيّن رمزاً سرياً أولاً." else dialog = "lockFolders"
+                }
+            }
+            item {
+                RowItem("إظهار التطبيقات المخفية", "يعيد إظهار كل ما أخفيته", "${s.hiddenApps.size}") {
+                    guard("تأكيد الرمز") { vm.update { setHiddenApps(emptySet()) } }
+                }
+            }
 
-        item { Section("الموقع والصلاة") }
-        item { RowItem("المدينة (الصلاة والطقس)", "الدولة ← الولاية ← المدينة", s.city.name) { dialog = "country" } }
-        item { RowItem("طريقة حساب الصلاة", null, PrayerRepository.methodName(s.method)) { dialog = "method" } }
-        item {
-            ToggleItem("المذهب في حساب العصر", if (s.madhab == "HANAFI") "حنفي" else "جمهور (الشافعي/المالكي/الحنبلي)", s.madhab == "HANAFI") { v ->
-                vm.update { setMadhab(if (v) "HANAFI" else "SHAFI") }
-            }
         }
-        item { RowItem("مدة الإقامة بعد الأذان", "تُستخدم في العد التنازلي", "${s.iqamaMinutes} دقيقة") { dialog = "iqama" } }
-        item { ToggleItem("عرض شاشة الأذان", null, s.adhanEnabled) { v -> vm.update { setAdhan(v) } } }
-        item { ToggleItem("تشغيل صوت الأذان", "ضع الملف في res/raw/adhan.mp3", s.adhanSound) { v -> vm.update { setAdhanSound(v) } } }
+        if (cat == "المظهر") {
+            item { Section("المظهر") }
+            item {
+                RowItem("اتجاه الواجهة والتنقل", if (s.layoutRtl) "من اليمين إلى اليسار" else "من اليسار إلى اليمين",
+                    if (s.layoutRtl) "يمين ← يسار" else "يسار ← يمين") { vm.update { setLayoutRtl(!s.layoutRtl) } }
+            }
+            item {
+                RowItem("حجم الأيقونات", null, listOf("صغير", "متوسط", "كبير")[s.tileScale.coerceIn(0, 2)]) { dialog = "tileScale" }
+            }
+            item {
+                RowItem("شكل الأيقونات", null, shapeName(s.tileShape)) { dialog = "tileShape" }
+            }
 
-        item { Section("الإقلاع واللاونشر الافتراضي") }
-        item { ToggleItem("التشغيل التلقائي عند الإقلاع", "يفتح اللاونشر بعد تشغيل الجهاز أو عودة الكهرباء", s.autoStart) { v -> vm.update { setAutoStart(v) } } }
-        item {
-            RowItem("تعيين كلاونشر افتراضي", "الطريقة المضمونة لبقائه الشاشة الأولى بعد كل تشغيل") {
-                requestHomeRole(ctx) { roleLauncher.launch(it) }
-            }
         }
-        item {
-            RowItem("السماح بالعرض فوق التطبيقات", "ضروري لظهور شاشة الأذان أثناء تشغيل تطبيق آخر") {
-                ctx.startActivity(Intent(AndroidSettings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}"))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            }
+        if (cat == "الأخبار") {
+            item { Section("الأخبار") }
+            item { ToggleItem("شريط الأخبار", "يظهر تحت مواقيت الصلاة", s.showNews) { v -> vm.update { setShowNews(v) } } }
+            item { RowItem("مصدر الأخبار (رابط RSS)", s.newsUrl.take(50), "تغيير") { dialog = "newsUrl" } }
+
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) item {
-            RowItem("السماح بالمنبّهات الدقيقة", "لإطلاق الأذان في وقته بالضبط") {
-                runCatching {
-                    ctx.startActivity(Intent(AndroidSettings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${ctx.packageName}"))
+        if (cat == "الصفوف المخصصة") {
+            item { Section("الصفوف المخصصة") }
+            item { RowItem("إضافة صف جديد", "مثل: ألعاب، أطفال، رياضة", "${s.rows.size}") { dialog = "newRow" } }
+            itemsIndexed(s.rows, key = { _, r -> "row:" + r.id }) { _, r ->
+                RowItem("صف «${r.name}»", "${r.pkgs.size} تطبيق — اضغط للإدارة") { rowSel = r.id; dialog = "rowMenu" }
+            }
+
+        }
+        if (cat == "التطبيقات والفيديو") {
+            item { Section("التطبيقات والفيديو") }
+            item {
+                ToggleItem("إظهار التطبيقات غير المدعومة", "التطبيقات المصممة للهاتف وبلا واجهة تلفاز؛ تظهر في صف منفصل بوسم «غير مدعوم»",
+                    s.showUnsupported) { v -> vm.update { setShowUnsupported(v) } }
+            }
+            item { ToggleItem("صف المشاهدة", "يعرض تطبيقات المشاهدة التي تختارها وفيديوهات يوتيوب", s.showVideos) { v -> vm.update { setShowVideos(v) } } }
+            item {
+                RowItem("تطبيقات صف المشاهدة", "مثل يوتيوب ونتفليكس وشاهد؛ تظهر كبطاقات تفتح التطبيق مباشرة", "${s.videoApps.size}") { dialog = "videoApps" }
+            }
+            item {
+                RowItem("مفتاح YouTube Data API (اختياري)", "المفتاح يجلب الفيديوهات رسمياً من جوجل. بدونه تُجلب من مصدر Piped المفتوح (غير رسمي)",
+                    if (s.youtubeKey.isBlank()) "غير مضبوط" else "مضبوط") { dialog = "ytkey" }
+            }
+            item {
+                RowItem("خادم Piped (بلا مفتاح)", "غيّره إن توقف الخادم الافتراضي", s.pipedInstance.removePrefix("https://")) { dialog = "piped" }
+            }
+            item {
+                RowItem("قنوات يوتيوب الخاصة بك", "ألصق معرّفات القنوات (تبدأ بـ UC) مفصولة بفاصلة؛ تُعرض آخر فيديوهاتها بمفتاحك",
+                    if (s.channels.isBlank()) "غير مضبوطة" else "${s.channels.split(',').count { it.isNotBlank() }} قنوات") { dialog = "channels" }
+            }
+            item {
+                RowItem("مصدر فيديو مخصص (رابط JSON)", "لعرض فيديوهات تطبيقك أنت (مثل Zemoura TV) داخل الصف؛ الصيغة في README",
+                    if (s.feedUrl.isBlank()) "غير مضبوط" else "مضبوط") { dialog = "feed" }
+            }
+            item { RowItem("بلد الفيديوهات", "رمز من حرفين مثل DZ أو SA أو FR", s.videoRegion) { dialog = "region" } }
+
+        }
+        if (cat == "الخلفية") {
+            item { Section("الخلفية") }
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+                    items(Wallpapers.photos) { (key, name, _) ->
+                        Focusable(onClick = { vm.update { setWallpaper(key) } }, modifier = Modifier.size(180.dp, 100.dp)) {
+                            Box(Modifier.fillMaxSize()) {
+                                AsyncImage(model = Wallpapers.resId(key), contentDescription = name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                Text(name + if (s.wallpaper == key) " ✓" else "", color = Color.White, fontSize = 18.sp,
+                                    modifier = Modifier.align(Alignment.BottomCenter).background(Color(0x99000000)).fillMaxWidth().padding(6.dp))
+                            }
+                        }
+                    }
+                    itemsIndexed(Wallpapers.presets) { i, (name, brush) ->
+                        Focusable(onClick = { vm.update { setWallpaper("preset:$i") } }, modifier = Modifier.size(180.dp, 100.dp)) {
+                            Box(Modifier.fillMaxSize().background(brush), contentAlignment = Alignment.BottomCenter) {
+                                Text(name + if (s.wallpaper == "preset:$i") " ✓" else "", color = Palette.Text, fontSize = 18.sp, modifier = Modifier.padding(6.dp))
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                ToggleItem("تغيير الخلفية تلقائياً", "تتبدّل الخلفية بين الخلفيات التي تختارها أدناه", s.wallpaperAuto) { v ->
+                    vm.update { setWallpaperAuto(v) }
+                    if (v && s.wallpaperSet.size < 2) msg = "اختر خلفيتين على الأقل من «الخلفيات المشمولة بالتغيير»."
+                }
+            }
+            item { RowItem("مدة التغيير", null, "${s.wallpaperMinutes} دقيقة") { dialog = "wpMinutes" } }
+            item { RowItem("الخلفيات المشمولة بالتغيير", "اختر الخلفيات التي تتبدّل بينها", "${s.wallpaperSet.size}") { dialog = "wpSet" } }
+            item { RowItem("اختيار صورة من الجهاز", "تُحفظ ويُعاد تحميلها بعد التشغيل") { pickImage.launch(arrayOf("image/*")) } }
+
+        }
+        if (cat == "الموقع والصلاة") {
+            item { Section("الموقع والصلاة") }
+            item { RowItem("المدينة (الصلاة والطقس)", "الدولة ← الولاية ← المدينة", s.city.name) { dialog = "country" } }
+            item { RowItem("طريقة حساب الصلاة", null, PrayerRepository.methodName(s.method)) { dialog = "method" } }
+            item {
+                ToggleItem("المذهب في حساب العصر", if (s.madhab == "HANAFI") "حنفي" else "جمهور (الشافعي/المالكي/الحنبلي)", s.madhab == "HANAFI") { v ->
+                    vm.update { setMadhab(if (v) "HANAFI" else "SHAFI") }
+                }
+            }
+            item { RowItem("مدة الإقامة بعد الأذان", "تُستخدم في العد التنازلي", "${s.iqamaMinutes} دقيقة") { dialog = "iqama" } }
+            item { ToggleItem("عرض شاشة الأذان", null, s.adhanEnabled) { v -> vm.update { setAdhan(v) } } }
+            item { ToggleItem("تشغيل صوت الأذان", "ضع الملف في res/raw/adhan.mp3", s.adhanSound) { v -> vm.update { setAdhanSound(v) } } }
+
+        }
+        if (cat == "الإقلاع واللاونشر الافتراضي") {
+            item { Section("الإقلاع واللاونشر الافتراضي") }
+            item { ToggleItem("التشغيل التلقائي عند الإقلاع", "يفتح اللاونشر بعد تشغيل الجهاز أو عودة الكهرباء", s.autoStart) { v -> vm.update { setAutoStart(v) } } }
+            item {
+                RowItem("تعيين كلاونشر افتراضي", "الطريقة المضمونة لبقائه الشاشة الأولى بعد كل تشغيل") {
+                    requestHomeRole(ctx) { roleLauncher.launch(it) }
+                }
+            }
+            item {
+                RowItem("السماح بالعرض فوق التطبيقات", "ضروري لظهور شاشة الأذان أثناء تشغيل تطبيق آخر") {
+                    ctx.startActivity(Intent(AndroidSettings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}"))
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 }
             }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) item {
+                RowItem("السماح بالمنبّهات الدقيقة", "لإطلاق الأذان في وقته بالضبط") {
+                    runCatching {
+                        ctx.startActivity(Intent(AndroidSettings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${ctx.packageName}"))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    }
+                }
+            }
+        }
+        if (cat == "التسريع") {
+            item { Section("التسريع") }
+            item {
+                val (free, total) = remember(boostTick) { Booster.memory(ctx) }
+                RowItem("الذاكرة المتاحة", "كلما زادت كان الجهاز أسرع", "$free / $total ميغابايت") { boostTick++ }
+            }
+            item {
+                RowItem(if (boosting) "جارٍ التسريع…" else "تسريع الآن", "يوقف التطبيقات المثبّتة التي تعمل في الخلفية ويفرّغ الذاكرة") {
+                    if (!boosting) scope.launch {
+                        boosting = true
+                        val r = Booster.boost(ctx); boosting = false; boostTick++
+                        msg = "أُوقفت تطبيقات الخلفية. الذاكرة المتاحة ${r.freeMb} من ${r.totalMb} ميغابايت" + if (r.freedMb > 0) " (تحرّر ${r.freedMb})." else "."
+                    }
+                }
+            }
+            item {
+                Text("لا يوقف التسريع تطبيقات النظام ولا هذا اللاونشر. قد يعيد أندرويد تشغيل بعض الخدمات من تلقاء نفسه، وهذا طبيعي.",
+                    color = Palette.Muted, fontSize = 18.sp)
+            }
+        }
         }
     }
 

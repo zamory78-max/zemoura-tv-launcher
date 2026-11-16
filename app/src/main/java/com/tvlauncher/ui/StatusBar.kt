@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
 private data class NetState(val kind: String, val level: Int)   // kind: wifi | eth | none
 
@@ -88,32 +89,46 @@ fun NetworkChip() {
     }
 }
 
-/** مداخل التلفاز (HDMI وغيرها) إن كان الجهاز يكشفها. */
+/** مداخل التلفاز (HDMI وغيرها): يظهر فقط على أجهزة تلفاز أندرويد التي تكشف مداخل. */
 @Composable
 fun InputsChip(onMessage: (String, String) -> Unit) {
     val ctx = LocalContext.current
     var open by remember { mutableStateOf(false) }
-    val inputs = remember(open) {
-        if (!open) emptyList() else runCatching {
+    val inputs = remember {
+        runCatching {
             val m = ctx.getSystemService(Context.TV_INPUT_SERVICE) as TvInputManager
             m.tvInputList.filter { it.isPassthroughInput }
                 .map { it.id to (it.loadCustomLabel(ctx)?.toString() ?: it.loadLabel(ctx)?.toString() ?: it.id) }
         }.getOrDefault(emptyList())
     }
+    if (inputs.isEmpty()) return
     Focusable(onClick = { open = true }, shape = RoundedCornerShape(40.dp), bg = Color(0x33FFFFFF)) {
         Text("المداخل", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp))
     }
-    if (open) {
-        if (inputs.isEmpty()) {
-            MessageDialog("لا توجد مداخل",
-                "لم يكشف الجهاز أي مدخل (HDMI/AV). صندوق أندرويد المتصل بالتلفاز لا يرى مداخل التلفاز نفسه؛ استخدم زر INPUT/SOURCE في ريموت التلفاز.") { open = false }
-        } else ChoiceDialog("مداخل التلفاز", inputs, onDismiss = { open = false }, onPick = { id ->
-            open = false
-            runCatching {
-                ctx.startActivity(Intent(Intent.ACTION_VIEW, TvContract.buildChannelUriForPassthroughInput(id)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            }.onFailure { onMessage("تعذر فتح المدخل", "لا يسمح الجهاز بفتح هذا المدخل من اللاونشر.") }
-        })
+    if (open) ChoiceDialog("مداخل التلفاز", inputs, onDismiss = { open = false }, onPick = { id ->
+        open = false
+        runCatching {
+            ctx.startActivity(Intent(Intent.ACTION_VIEW, TvContract.buildChannelUriForPassthroughInput(id)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }.onFailure { onMessage("تعذر فتح المدخل", "لا يسمح الجهاز بفتح هذا المدخل من اللاونشر.") }
+    })
+}
+
+/** زر التسريع: إيقاف تطبيقات الخلفية وتفريغ الذاكرة. */
+@Composable
+fun BoostChip(onMessage: (String, String) -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    Focusable(onClick = {
+        if (!busy) { busy = true; scope.launch {
+            val r = com.tvlauncher.data.Booster.boost(ctx); busy = false
+            onMessage("تم التسريع", "أُوقفت تطبيقات الخلفية. الذاكرة المتاحة الآن ${r.freeMb} من ${r.totalMb} ميغابايت" +
+                if (r.freedMb > 0) " (تحرّر ${r.freedMb} ميغابايت)." else ".")
+        } }
+    }, shape = RoundedCornerShape(40.dp), bg = Color(0x33FFFFFF)) {
+        Text(if (busy) "جارٍ التسريع…" else "تسريع", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp))
     }
 }
 
