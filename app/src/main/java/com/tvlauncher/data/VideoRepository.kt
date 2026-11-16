@@ -17,6 +17,7 @@ import java.time.Duration
  */
 object VideoRepository {
 
+    const val ZEMOURA_TV_PACKAGE = "com.islamictv.app"
     const val YOUTUBE_PACKAGE_TV = "com.google.android.youtube.tv"
 
     /** المصدر المخصص أولاً (إن ضُبط)، ثم قنوات المستخدم، وإلا «الأكثر مشاهدة». */
@@ -196,6 +197,12 @@ object VideoRepository {
             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(v.link)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             return
         }
+        // الأولوية لتشغيل الفيديو داخل «زمورة تي في» (يستقبل المعرّف عبر DeepLinkActivity)، وإلا يوتيوب
+        val zemoura = Intent().setComponent(android.content.ComponentName(ZEMOURA_TV_PACKAGE, "$ZEMOURA_TV_PACKAGE.youtube.DeepLinkActivity"))
+            .setData(Uri.parse("zemoura://video/${v.id}"))
+            .putExtra("title", v.title).putExtra("channel", v.channel).putExtra("thumb", v.thumb)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (runCatching { context.startActivity(zemoura) }.isSuccess) return
         val uri = Uri.parse("https://www.youtube.com/watch?v=${v.id}")
         val tv = Intent(Intent.ACTION_VIEW, uri).setPackage(YOUTUBE_PACKAGE_TV).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val any = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
