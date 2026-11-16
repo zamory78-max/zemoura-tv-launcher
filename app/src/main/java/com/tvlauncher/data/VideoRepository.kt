@@ -102,7 +102,7 @@ object VideoRepository {
                 }
                 out
             }.getOrElse { lastError = "${it.javaClass.simpleName} ${it.message.orEmpty().take(60)}"; emptyList() }
-        }.sortedByDescending { it.first }.map { it.second }.take(20)
+        }.sortedByDescending { it.first }.map { it.second }.take(40)
     }
 
     /**
