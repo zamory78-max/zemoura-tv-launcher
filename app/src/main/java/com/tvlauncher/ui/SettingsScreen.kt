@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import com.tvlauncher.data.RemoteKeys
 import com.tvlauncher.data.Booster
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -72,6 +73,7 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
     var rowSel by remember { mutableStateOf("") }
     var manualName by remember { mutableStateOf("") }
     var cat by remember { mutableStateOf("الحماية") }
+    var capturedKey by remember { mutableStateOf<Pair<String, String>?>(null) }
     var boostTick by remember { mutableStateOf(0) }
     var boosting by remember { mutableStateOf(false) }
 
@@ -83,7 +85,7 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
     }
     val roleLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
 
-    val allCats = listOf("الحماية", "المظهر", "الأخبار", "صندوق الأسماء", "الصفوف المخصصة", "التطبيقات والفيديو", "الخلفية", "الموقع والصلاة", "الإقلاع واللاونشر الافتراضي", "التسريع")
+    val allCats = listOf("الحماية", "المظهر", "الأخبار", "صندوق الأسماء", "الصفوف المخصصة", "التطبيقات والفيديو", "الخلفية", "الموقع والصلاة", "أزرار الريموت", "الإقلاع واللاونشر الافتراضي", "التسريع")
     Row(Modifier.fillMaxSize()) {
         Column(
             Modifier.width(380.dp).fillMaxHeight().background(Color(0x66000000)).verticalScroll(rememberScrollState()).padding(24.dp),
@@ -241,6 +243,19 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
             item { ToggleItem("تشغيل صوت الأذان", "ضع الملف في res/raw/adhan.mp3", s.adhanSound) { v -> vm.update { setAdhanSound(v) } } }
 
         }
+        if (cat == "أزرار الريموت") {
+            item { Section("أزرار الريموت") }
+            item { Text("اربط الأزرار الملوّنة أو أزرار الاختصار (يوتيوب، نتفليكس…) بأي تطبيق. تعمل أثناء ظهور اللاونشر. إن احتفظ النظام بزر ما فلن يصل للاونشر ولا يمكن ربطه.", color = Palette.Muted, fontSize = 16.sp) }
+            val km = RemoteKeys.parse(s.keyMap)
+            km.forEach { (id, pkg) ->
+                item(key = "km$id") {
+                    RowItem("زر ${RemoteKeys.label(id)}", "اضغط لإزالة الربط", apps.firstOrNull { it.pkg == pkg }?.label ?: pkg) {
+                        vm.update { setKeyMap(RemoteKeys.encode(km - id)) }
+                    }
+                }
+            }
+            item { RowItem("ربط زر جديد", "ستضغط الزر في الريموت ثم تختار التطبيق") { capturedKey = null; dialog = "keyCapture" } }
+        }
         if (cat == "الإقلاع واللاونشر الافتراضي") {
             item { Section("الإقلاع واللاونشر الافتراضي") }
             item { ToggleItem("التشغيل التلقائي عند الإقلاع", "يفتح اللاونشر بعد تشغيل الجهاز أو عودة الكهرباء", s.autoStart) { v -> vm.update { setAutoStart(v) } } }
@@ -294,6 +309,20 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
         "wpSet" -> MultiToggleDialog("الخلفيات المشمولة", Wallpapers.all().map { (k, n) -> Triple(k, n, k in s.wallpaperSet) },
             onToggle = { k -> vm.update { setWallpaperSet(if (k in s.wallpaperSet) s.wallpaperSet - k else s.wallpaperSet + k) } },
             onDismiss = { dialog = "" })
+        "keyCapture" -> {
+            DisposableEffect(Unit) {
+                RemoteKeys.capture = { id, name -> capturedKey = id to name; RemoteKeys.capture = null; dialog = "keyPick" }
+                onDispose { RemoteKeys.capture = null }
+            }
+            DialogFrame("ربط زر الريموت", { dialog = "" }) {
+                Text("اضغط الآن الزر الذي تريد ربطه في الريموت…\nإن لم يحدث شيء فالنظام يحتفظ بهذا الزر.", color = Palette.Text, fontSize = 22.sp)
+            }
+        }
+        "keyPick" -> capturedKey?.let { (id, name) ->
+            ChoiceDialog("الزر $name ← اختر التطبيق", apps.map { it.pkg to it.label },
+                onPick = { pkg -> vm.update { setKeyMap(RemoteKeys.encode(RemoteKeys.parse(s.keyMap) + (id to pkg))) }; dialog = ""; msg = "تم ربط الزر." },
+                onDismiss = { dialog = "" })
+        } ?: run { dialog = "" }
         "names" -> TextInputDialog("أسماء الأسرة", s.names, hint = "أحمد، سارة، يوسف", onOk = { vm.update { setNames(it.trim()) }; dialog = "" }, onDismiss = { dialog = "" })
         "newsUrl" -> TextInputDialog("رابط RSS للأخبار", s.newsUrl, hint = "https://...", onOk = { vm.update { setNewsUrl(it.trim()) }; dialog = "" }, onDismiss = { dialog = "" })
         "newRow" -> TextInputDialog("اسم الصف الجديد", hint = "مثال: ألعاب", onOk = { if (it.isNotBlank()) vm.addRow(it); dialog = "" }, onDismiss = { dialog = "" })

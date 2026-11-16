@@ -42,7 +42,8 @@ data class Settings(
     val showNews: Boolean = true,
     val newsUrl: String = DEFAULT_NEWS_URL,
     val newsDir: String = "right",                // اتجاه حركة الشريط: right | left
-    val names: String = ""                        // أسماء صندوق الهدايا (مفصولة بفاصلة أو سطر)
+    val names: String = "",                       // أسماء صندوق الهدايا (مفصولة بفاصلة أو سطر)
+    val keyMap: String = ""                       // أزرار الريموت: "k<keyCode>=pkg;s<scanCode>=pkg"
 )
 
 class Prefs(private val context: Context) {
@@ -81,6 +82,7 @@ class Prefs(private val context: Context) {
         val newsUrl = stringPreferencesKey("news_url")
         val newsDir = stringPreferencesKey("news_dir")
         val names = stringPreferencesKey("names")
+        val keyMap = stringPreferencesKey("key_map")
     }
 
     val flow: Flow<Settings> = context.store.data.map { p ->
@@ -119,7 +121,8 @@ class Prefs(private val context: Context) {
             showNews = p[K.showNews] ?: d.showNews,
             newsUrl = p[K.newsUrl] ?: d.newsUrl,
             newsDir = p[K.newsDir] ?: d.newsDir,
-            names = p[K.names] ?: d.names
+            names = p[K.names] ?: d.names,
+            keyMap = p[K.keyMap] ?: d.keyMap
         )
     }
 
@@ -159,6 +162,7 @@ class Prefs(private val context: Context) {
 
     suspend fun setNewsDir(v: String) = edit { it[K.newsDir] = v }
     suspend fun setNames(v: String) = edit { it[K.names] = v }
+    suspend fun setKeyMap(v: String) = edit { it[K.keyMap] = v }
 
     private suspend fun edit(block: (MutablePreferences) -> Unit) {
         context.store.edit { block(it) }

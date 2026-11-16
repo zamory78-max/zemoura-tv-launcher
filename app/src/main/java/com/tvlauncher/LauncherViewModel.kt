@@ -26,6 +26,13 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _videos = MutableStateFlow<List<Video>>(emptyList())
     val videos: StateFlow<List<Video>> = _videos
+    private val _videoTick = MutableStateFlow(0)
+    private var lastVideoRefresh = 0L
+    /** يحدّث الفيديوهات عند العودة للشاشة الرئيسية إن مضت 10 دقائق على آخر تحديث. */
+    fun refreshVideos() {
+        val now = System.currentTimeMillis()
+        if (now - lastVideoRefresh > 10 * 60_000L) { lastVideoRefresh = now; _videoTick.value++ }
+    }
     private val _videoError = MutableStateFlow("")
     val videoError: StateFlow<String> = _videoError
     private val _news = MutableStateFlow<List<String>>(emptyList())
@@ -61,7 +68,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         }
         // الفيديوهات: تحديث عند تغيّر المفتاح/البلد/التفعيل
         viewModelScope.launch {
-            settings.map { listOf(it.showVideos, it.youtubeKey, it.videoRegion, it.pipedInstance, it.feedUrl, it.channels) }.distinctUntilChanged()
+            combine(settings.map { listOf(it.showVideos, it.youtubeKey, it.videoRegion, it.pipedInstance, it.feedUrl, it.channels) }.distinctUntilChanged(), _videoTick) { v, _ -> v }
                 .collectLatest { v ->
                     val on = v[0] as Boolean; val key = v[1] as String; val region = v[2] as String; val piped = v[3] as String; val feed = v[4] as String; val channels = v[5] as String
                     while (true) {

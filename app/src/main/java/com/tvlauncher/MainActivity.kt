@@ -85,8 +85,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if (event.action == android.view.KeyEvent.ACTION_DOWN && event.repeatCount == 0 && !com.tvlauncher.data.RemoteKeys.isReserved(event)) {
+            val id = com.tvlauncher.data.RemoteKeys.id(event)
+            com.tvlauncher.data.RemoteKeys.capture?.let { it(id, com.tvlauncher.data.RemoteKeys.describe(event)); return true }
+            val st = vm.settings.value
+            val pkg = com.tvlauncher.data.RemoteKeys.parse(st.keyMap)[id]
+            if (pkg != null && (pkg !in st.lockedApps || !vm.hasPin) && com.tvlauncher.data.AppRepository.launch(this, pkg)) return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onResume() {
         super.onResume()
+        vm.refreshVideos()
         vm.refreshApps()   // لالتقاط التطبيقات المثبتة/المحذوفة حديثاً
     }
 
