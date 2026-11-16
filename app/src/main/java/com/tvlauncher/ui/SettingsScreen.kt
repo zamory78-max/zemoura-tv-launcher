@@ -184,7 +184,7 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
                 RowItem("خادم Piped (بلا مفتاح)", "غيّره إن توقف الخادم الافتراضي", s.pipedInstance.removePrefix("https://")) { dialog = "piped" }
             }
             item {
-                RowItem("قنوات يوتيوب الخاصة بك", "ألصق معرّفات القنوات (تبدأ بـ UC) مفصولة بفاصلة؛ تُعرض آخر فيديوهاتها بمفتاحك",
+                RowItem("قنوات يوتيوب الخاصة بك", "ألصق روابط القنوات أو @الاسم مفصولة بفاصلة؛ تُعرض آخر فيديوهاتها بدون مفتاح",
                     if (s.channels.isBlank()) "غير مضبوطة" else "${s.channels.split(',').count { it.isNotBlank() }} قنوات") { dialog = "channels" }
             }
             item {
@@ -331,7 +331,7 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
         "videoApps" -> MultiToggleDialog("تطبيقات صف المشاهدة", apps.map { Triple(it.pkg, it.label, it.pkg in s.videoApps) },
             onToggle = { pkg -> vm.update { setVideoApps(if (pkg in s.videoApps) s.videoApps - pkg else s.videoApps + pkg) } },
             onDismiss = { dialog = "" })
-        "channels" -> TextInputDialog("معرّفات القنوات (UC...)", s.channels, hint = "UCxxxx, UCyyyy", onOk = { v ->
+        "channels" -> TextInputDialog("قنوات يوتيوب (روابط أو @اسم)", s.channels, hint = "@ibnothaimeentv, @SaudiSunnahTv", onOk = { v ->
             vm.update { setChannels(v) }; dialog = ""
         }, onDismiss = { dialog = "" })
         "feed" -> TextInputDialog("رابط JSON للفيديوهات", s.feedUrl, hint = "https://...", onOk = { v ->

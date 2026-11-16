@@ -19,38 +19,79 @@ object VideoRepository {
 
     const val YOUTUBE_PACKAGE_TV = "com.google.android.youtube.tv"
 
-    /** المصدر المخصص أولاً (إن ضُبط)، ثم يوتيوب. */
+    /** المصدر المخصص أولاً (إن ضُبط)، ثم قنوات المستخدم، وإلا «الأكثر مشاهدة». */
     suspend fun all(key: String, region: String, piped: String, feed: String, channels: String): List<Video> {
-        val k = key.ifBlank { BuildConfig.YOUTUBE_API_KEY }
-        val ids = channels.split(',', '\n', ' ').map { it.trim() }.filter { it.startsWith("UC") && it.length >= 20 }
-        val own = if (ids.isNotEmpty() && k.isNotBlank()) channelVideos(k, ids) else emptyList()
+        val tokens = channels.split(',', '،', '\n', ' ').map { it.trim() }.filter { it.isNotEmpty() }
+        val own = if (tokens.isNotEmpty()) channelVideos(tokens) else emptyList()
         // إن حُدّدت قنوات فنعرض فيديوهاتها بدل «الأكثر مشاهدة»
-        return customFeed(feed) + own.ifEmpty { trending(key, region, piped) }
+        return customFeed(feed) + own.ifEmpty { if (tokens.isEmpty()) trending(key, region, piped) else emptyList() }
     }
 
-    /** آخر فيديوهات قنوات محددة عبر قائمة الرفع (تكلفتها 1 وحدة حصة لكل قناة). */
-    private suspend fun channelVideos(key: String, ids: List<String>): List<Video> = withContext(Dispatchers.IO) {
-        ids.flatMap { id ->
+    private val idCache = HashMap<String, String>()
+    private const val UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+
+    private fun httpGet(url: String): String {
+        val c = URL(url).openConnection() as HttpURLConnection
+        c.connectTimeout = 10_000; c.readTimeout = 15_000; c.instanceFollowRedirects = true
+        c.setRequestProperty("User-Agent", UA)
+        c.setRequestProperty("Accept-Language", "ar,en;q=0.8")
+        c.setRequestProperty("Cookie", "CONSENT=YES+1; SOCS=CAI")
+        return try { c.inputStream.bufferedReader().readText() } finally { c.disconnect() }
+    }
+
+    /** يقبل: UCxxxx أو youtube.com/channel/UCxxxx أو youtube.com/@handle أو @handle أو youtube.com/c/name */
+    private fun resolveChannelId(src: String): String? {
+        Regex("""^(UC[\w-]{22})$""").find(src)?.let { return it.groupValues[1] }
+        Regex("""/channel/(UC[\w-]{22})""").find(src)?.let { return it.groupValues[1] }
+        idCache[src]?.let { return it }
+        val page = when {
+            src.startsWith("http") -> src.substringBefore("?").removeSuffix("/")
+            src.startsWith("@") -> "https://www.youtube.com/$src"
+            else -> "https://www.youtube.com/@$src"
+        }
+        val html = httpGet(page)
+        val id = Regex("""<link rel="canonical" href="https://www\.youtube\.com/channel/(UC[\w-]{22})"""").find(html)?.groupValues?.get(1)
+            ?: Regex(""""externalId":"(UC[\w-]{22})"""").find(html)?.groupValues?.get(1)
+            ?: Regex(""""channelId":"(UC[\w-]{22})"""").find(html)?.groupValues?.get(1)
+        if (id != null) idCache[src] = id
+        return id
+    }
+
+    /** آخر فيديوهات القنوات عبر خلاصة RSS الرسمية من يوتيوب (لا تحتاج مفتاحاً). */
+    private suspend fun channelVideos(tokens: List<String>): List<Video> = withContext(Dispatchers.IO) {
+        tokens.flatMap { tk ->
             runCatching {
-                val url = "https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=5" +
-                    "&playlistId=UU${id.removePrefix("UC")}&key=$key"
-                val c = URL(url).openConnection() as HttpURLConnection
-                c.connectTimeout = 10_000; c.readTimeout = 10_000
-                val body = try { c.inputStream.bufferedReader().readText() } finally { c.disconnect() }
-                val items = JSONObject(body).getJSONArray("items")
-                (0 until items.length()).map {
-                    val sn = items.getJSONObject(it).getJSONObject("snippet")
-                    val th = sn.optJSONObject("thumbnails")
-                    val thumb = (th?.optJSONObject("medium") ?: th?.optJSONObject("default"))?.optString("url").orEmpty()
-                    sn.optString("publishedAt") to Video(
-                        id = sn.getJSONObject("resourceId").getString("videoId"),
-                        title = sn.getString("title"),
-                        channel = sn.optString("videoOwnerChannelTitle", sn.optString("channelTitle")),
-                        thumb = thumb, duration = ""
-                    )
+                val id = resolveChannelId(tk) ?: return@runCatching emptyList()
+                val p = android.util.Xml.newPullParser().apply {
+                    setFeature(org.xmlpull.v1.XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
+                    setInput(httpGet("https://www.youtube.com/feeds/videos.xml?channel_id=$id").reader())
                 }
+                val out = ArrayList<Pair<String, Video>>()
+                var inEntry = false; var inAuthor = false
+                var vid = ""; var title = ""; var pub = ""; var author = ""; var thumb = ""
+                while (p.next() != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+                    when (p.eventType) {
+                        org.xmlpull.v1.XmlPullParser.START_TAG -> when (p.name) {
+                            "entry" -> { inEntry = true; vid = ""; title = ""; pub = ""; thumb = "" }
+                            "author" -> inAuthor = true
+                            "name" -> if (inAuthor) author = p.nextText()
+                            "yt:videoId" -> if (inEntry) vid = p.nextText()
+                            "title" -> if (inEntry) title = p.nextText()
+                            "published" -> if (inEntry) pub = p.nextText()
+                            "media:thumbnail" -> if (inEntry) thumb = p.getAttributeValue(null, "url").orEmpty()
+                        }
+                        org.xmlpull.v1.XmlPullParser.END_TAG -> when (p.name) {
+                            "author" -> inAuthor = false
+                            "entry" -> { inEntry = false
+                                if (vid.isNotBlank() && out.size < 6)
+                                    out.add(pub to Video(vid, title, author, thumb.ifBlank { "https://i.ytimg.com/vi/$vid/hqdefault.jpg" }, ""))
+                            }
+                        }
+                    }
+                }
+                out
             }.getOrDefault(emptyList())
-        }.sortedByDescending { it.first }.map { it.second }.take(15)
+        }.sortedByDescending { it.first }.map { it.second }.take(20)
     }
 
     /**
