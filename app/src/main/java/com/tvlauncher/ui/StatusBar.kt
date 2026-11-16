@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -189,7 +190,7 @@ fun GiftBox(namesRaw: String, modifier: Modifier = Modifier) {
                 drawRoundRect(body, Offset(u * 0.12f, u * 0.44f), Size(u * 0.76f, u * 0.50f), CornerRadius(u * 0.06f))
                 drawRect(ribbon, Offset(u * 0.44f, u * 0.44f), Size(u * 0.12f, u * 0.50f))
                 // الغطاء يرتفع ويميل عند الفتح
-                androidx.compose.ui.graphics.drawscope.withTransform({
+                withTransform({
                     translate(left = u * 0.10f * o, top = -u * 0.22f * o)
                     rotate(-18f * o, pivot = Offset(u * 0.12f, u * 0.44f))
                 }) {
