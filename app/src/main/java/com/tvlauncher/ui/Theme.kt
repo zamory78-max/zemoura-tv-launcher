@@ -17,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
@@ -112,17 +113,19 @@ fun Focusable(
     val st = remember { KeyState() }
     val click by rememberUpdatedState(onClick)
     val long by rememberUpdatedState(onLongClick)
-    val scale by animateFloatAsState(if (focused) 1.06f else 1f, tween(110), label = "focusScale")
+    val scale by animateFloatAsState(if (focused) 1.12f else 1f, tween(110), label = "focusScale")
     Box(
         modifier
             .scale(scale)
+            // هالة مضيئة حول العنصر المحدَّد
+            .then(if (focused) Modifier.shadow(26.dp, shape, ambientColor = Color.White, spotColor = Color.White) else Modifier)
             .clip(shape)
             .background(bg)
             // تأثير زجاجي عند التحديد: طبقة بيضاء شفافة متدرجة + حدّ ناعم
             .then(if (focused) Modifier.background(
-                androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0x59FFFFFF), Color(0x26FFFFFF))), shape
+                androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0x80FFFFFF), Color(0x40FFFFFF))), shape
             ) else Modifier)
-            .border(if (focused) 2.dp else 0.dp, Color(0xCCFFFFFF), shape)
+            .border(if (focused) 4.dp else 0.dp, Color.White, shape)
             .onFocusChanged { focused = it.isFocused }
             .onKeyEvent { e ->
                 val ok = e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter
