@@ -39,3 +39,14 @@ jobs:
           body: "نسخة إصدار (release) سريعة الإقلاع. حمّل tv-launcher.apk وثبّته على الجهاز."
           files: tv-launcher.apk
           make_latest: true
+
+      - name: نشر نسخة في مستودع التحميلات العام (apps-downloads)
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.DOWNLOADS_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "::warning::DOWNLOADS_TOKEN غير مضبوط، تم تخطي النشر في apps-downloads"; exit 0; fi
+          gh release view launcher -R zamory78-max/apps-downloads >/dev/null 2>&1 || \
+            gh release create launcher -R zamory78-max/apps-downloads --title "Zemoura Launcher" --notes "آخر نسخة من Zemoura Launcher"
+          gh release upload launcher tv-launcher.apk -R zamory78-max/apps-downloads --clobber
