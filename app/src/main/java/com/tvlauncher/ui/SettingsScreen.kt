@@ -10,6 +10,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import com.tvlauncher.data.RemoteKeys
 import com.tvlauncher.data.Booster
 import androidx.compose.foundation.background
@@ -152,7 +155,8 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
             item { Section("الأخبار") }
             item { RowItem("اتجاه حركة الشريط", null, if (s.newsDir == "right") "نحو اليمين ←" else "→ نحو اليسار") { vm.update { setNewsDir(if (s.newsDir == "right") "left" else "right") } } }
             item { ToggleItem("شريط الأخبار", "يظهر تحت مواقيت الصلاة", s.showNews) { v -> vm.update { setShowNews(v) } } }
-            item { RowItem("مصدر الأخبار (رابط RSS)", s.newsUrl.take(50), "تغيير") { dialog = "newsUrl" } }
+            item { RowItem("مصادر الأخبار", "اختر عدة مصادر (جزائرية، عربية، إسلامية سنية)", "${s.newsSources.split(',').count { it.isNotBlank() }}") { dialog = "newsSources" } }
+            item { RowItem("مصدر إضافي (رابط RSS)", s.newsUrl.take(50), "تغيير") { dialog = "newsUrl" } }
 
         }
         if (cat == "صندوق الأسماء") {
@@ -310,20 +314,35 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
             onToggle = { k -> vm.update { setWallpaperSet(if (k in s.wallpaperSet) s.wallpaperSet - k else s.wallpaperSet + k) } },
             onDismiss = { dialog = "" })
         "keyCapture" -> {
-            DisposableEffect(Unit) {
-                RemoteKeys.capture = { id, name -> capturedKey = id to name; RemoteKeys.capture = null; dialog = "keyPick" }
-                onDispose { RemoteKeys.capture = null }
-            }
+            // الحوار نافذة مستقلة فلا يصلها dispatchKeyEvent الخاص بالنشاط؛ نلتقط الزر هنا مباشرة
+            val fr = remember { androidx.compose.ui.focus.FocusRequester() }
+            LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
             DialogFrame("ربط زر الريموت", { dialog = "" }) {
-                Text("اضغط الآن الزر الذي تريد ربطه في الريموت…\nإن لم يحدث شيء فالنظام يحتفظ بهذا الزر.", color = Palette.Text, fontSize = 22.sp)
+                Box(Modifier.focusRequester(fr).focusable().onPreviewKeyEvent { e ->
+                    val ne = e.nativeKeyEvent
+                    if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && !RemoteKeys.isReserved(ne)) {
+                        capturedKey = RemoteKeys.id(ne) to RemoteKeys.describe(ne); dialog = "keyPick"; true
+                    } else false
+                }) {
+                    Text("اضغط الآن الزر الذي تريد ربطه في الريموت…\n(زر الرجوع للإلغاء)\nإن لم يحدث شيء فالنظام يحتفظ بهذا الزر، فاختر من القائمة.",
+                        color = Palette.Text, fontSize = 22.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
+                PillButton("اختيار الزر من قائمة", onClick = { dialog = "keyList" })
             }
         }
+        "keyList" -> ChoiceDialog("اختر الزر", RemoteKeys.common, onDismiss = { dialog = "" },
+            onPick = { id -> capturedKey = id to RemoteKeys.label(id); dialog = "keyPick" })
         "keyPick" -> capturedKey?.let { (id, name) ->
             ChoiceDialog("الزر $name ← اختر التطبيق", apps.map { it.pkg to it.label },
                 onPick = { pkg -> vm.update { setKeyMap(RemoteKeys.encode(RemoteKeys.parse(s.keyMap) + (id to pkg))) }; dialog = ""; msg = "تم ربط الزر." },
                 onDismiss = { dialog = "" })
         } ?: run { dialog = "" }
         "names" -> TextInputDialog("أسماء الأسرة", s.names, hint = "أحمد، سارة، يوسف", onOk = { vm.update { setNames(it.trim()) }; dialog = "" }, onDismiss = { dialog = "" })
+        "newsSources" -> {
+            val cur = s.newsSources.split(',').filter { it.isNotBlank() }.toSet()
+            MultiToggleDialog("مصادر الأخبار", com.tvlauncher.data.NewsSources.all.map { Triple(it.id, it.name, it.id in cur) },
+                onToggle = { id -> vm.update { setNewsSources((if (id in cur) cur - id else cur + id).joinToString(",")) } }, onDismiss = { dialog = "" })
+        }
         "newsUrl" -> TextInputDialog("رابط RSS للأخبار", s.newsUrl, hint = "https://...", onOk = { vm.update { setNewsUrl(it.trim()) }; dialog = "" }, onDismiss = { dialog = "" })
         "newRow" -> TextInputDialog("اسم الصف الجديد", hint = "مثال: ألعاب", onOk = { if (it.isNotBlank()) vm.addRow(it); dialog = "" }, onDismiss = { dialog = "" })
         "rowMenu" -> if (selRow == null) dialog = "" else ChoiceDialog(selRow.name,

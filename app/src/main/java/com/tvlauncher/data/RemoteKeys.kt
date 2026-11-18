@@ -13,6 +13,19 @@ object RemoteKeys {
         KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.KEYCODE_VOLUME_MUTE, KeyEvent.KEYCODE_POWER
     )
 
+    /** أزرار شائعة للاختيار اليدوي (للريموتات التي لا نلتقط أزرارها بالضغط). */
+    val common: List<Pair<String, String>> = listOf(
+        KeyEvent.KEYCODE_PROG_RED to "الأحمر", KeyEvent.KEYCODE_PROG_GREEN to "الأخضر",
+        KeyEvent.KEYCODE_PROG_YELLOW to "الأصفر", KeyEvent.KEYCODE_PROG_BLUE to "الأزرق",
+        KeyEvent.KEYCODE_GUIDE to "الدليل (Guide)", KeyEvent.KEYCODE_INFO to "المعلومات (Info)",
+        KeyEvent.KEYCODE_TV to "TV", KeyEvent.KEYCODE_SEARCH to "البحث", KeyEvent.KEYCODE_CAPTIONS to "الترجمة",
+        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE to "تشغيل/إيقاف", KeyEvent.KEYCODE_BOOKMARK to "Bookmark",
+        KeyEvent.KEYCODE_APP_SWITCH to "App switch", KeyEvent.KEYCODE_SETTINGS to "الإعدادات",
+        KeyEvent.KEYCODE_0 to "0", KeyEvent.KEYCODE_1 to "1", KeyEvent.KEYCODE_2 to "2", KeyEvent.KEYCODE_3 to "3",
+        KeyEvent.KEYCODE_4 to "4", KeyEvent.KEYCODE_5 to "5", KeyEvent.KEYCODE_6 to "6", KeyEvent.KEYCODE_7 to "7",
+        KeyEvent.KEYCODE_8 to "8", KeyEvent.KEYCODE_9 to "9"
+    ).map { (k, n) -> "k$k" to "$n  (${KeyEvent.keyCodeToString(k).removePrefix("KEYCODE_")})" }
+
     fun isReserved(e: KeyEvent) = e.keyCode in reserved
 
     /** معرّف ثابت للزر: رمز المفتاح، أو رمز المسح إن كان المفتاح غير معروف. */

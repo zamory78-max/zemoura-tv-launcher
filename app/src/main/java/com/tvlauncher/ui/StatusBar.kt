@@ -139,9 +139,8 @@ fun BoostChip(onMessage: (String, String) -> Unit) {
 /** شريط الأخبار المتحرك. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun NewsTicker(headlines: List<String>, moveRight: Boolean, modifier: Modifier = Modifier) {
-    if (headlines.isEmpty()) return
-    val text = remember(headlines) { headlines.joinToString("   •   ") }
+fun NewsTicker(items: List<com.tvlauncher.data.NewsItem>, moveRight: Boolean, modifier: Modifier = Modifier) {
+    if (items.isEmpty()) return
     Row(
         modifier.clip(RoundedCornerShape(16.dp)).background(Color(0x55000000)),
         verticalAlignment = Alignment.CenterVertically
@@ -153,8 +152,20 @@ fun NewsTicker(headlines: List<String>, moveRight: Boolean, modifier: Modifier =
             androidx.compose.ui.platform.LocalLayoutDirection provides
                 if (moveRight) androidx.compose.ui.unit.LayoutDirection.Rtl else androidx.compose.ui.unit.LayoutDirection.Ltr
         ) {
-            Text(text, color = Color.White, fontSize = 22.sp, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip,
-                modifier = Modifier.weight(1f).padding(horizontal = 16.dp).basicMarquee(iterations = Int.MAX_VALUE, velocity = 55.dp))
+            Row(Modifier.weight(1f).padding(horizontal = 16.dp).basicMarquee(iterations = Int.MAX_VALUE, velocity = 55.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                items.forEach { n ->
+                    val src = com.tvlauncher.data.NewsSources.byId(n.sourceId)
+                    // شارة المصدر: شعار الموقع (favicon) مع اسمه بلون المصدر
+                    Row(Modifier.clip(RoundedCornerShape(50)).background(Color(src?.color ?: 0xFF546E7A).copy(alpha = 0.9f)).padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (src != null) coil.compose.AsyncImage("https://www.google.com/s2/favicons?domain=${src.domain}&sz=64", null,
+                            Modifier.size(26.dp).clip(RoundedCornerShape(6.dp)).background(Color.White))
+                        Text(src?.name ?: "أخبار", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                    }
+                    Text(" " + n.title + "      ", color = Color.White, fontSize = 22.sp, maxLines = 1, softWrap = false)
+                }
+            }
         }
     }
 }

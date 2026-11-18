@@ -41,6 +41,7 @@ data class Settings(
     val wallpaperSet: Set<String> = emptySet(),   // الخلفيات المشمولة بالتغيير التلقائي
     val showNews: Boolean = true,
     val newsUrl: String = DEFAULT_NEWS_URL,
+    val newsSources: String = "aljazeera,echorouk,skynews,alukah",
     val newsDir: String = "right",                // اتجاه حركة الشريط: right | left
     val names: String = "",                       // أسماء صندوق الهدايا (مفصولة بفاصلة أو سطر)
     val keyMap: String = ""                       // أزرار الريموت: "k<keyCode>=pkg;s<scanCode>=pkg"
@@ -81,6 +82,7 @@ class Prefs(private val context: Context) {
         val showNews = booleanPreferencesKey("show_news")
         val newsUrl = stringPreferencesKey("news_url")
         val newsDir = stringPreferencesKey("news_dir")
+        val newsSources = stringPreferencesKey("news_sources")
         val names = stringPreferencesKey("names")
         val keyMap = stringPreferencesKey("key_map")
     }
@@ -121,6 +123,7 @@ class Prefs(private val context: Context) {
             showNews = p[K.showNews] ?: d.showNews,
             newsUrl = p[K.newsUrl] ?: d.newsUrl,
             newsDir = p[K.newsDir] ?: d.newsDir,
+            newsSources = p[K.newsSources] ?: d.newsSources,
             names = p[K.names] ?: d.names,
             keyMap = p[K.keyMap] ?: d.keyMap
         )
@@ -160,6 +163,7 @@ class Prefs(private val context: Context) {
     suspend fun setShowNews(v: Boolean) = edit { it[K.showNews] = v }
     suspend fun setNewsUrl(v: String) = edit { it[K.newsUrl] = v }
 
+    suspend fun setNewsSources(v: String) = edit { it[K.newsSources] = v }
     suspend fun setNewsDir(v: String) = edit { it[K.newsDir] = v }
     suspend fun setNames(v: String) = edit { it[K.names] = v }
     suspend fun setKeyMap(v: String) = edit { it[K.keyMap] = v }

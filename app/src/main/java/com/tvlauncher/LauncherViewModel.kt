@@ -35,23 +35,29 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     }
     private val _videoError = MutableStateFlow("")
     val videoError: StateFlow<String> = _videoError
-    private val _news = MutableStateFlow<List<String>>(emptyList())
-    val news: StateFlow<List<String>> = _news
+    private val _news = MutableStateFlow<List<NewsItem>>(emptyList())
+    val news: StateFlow<List<NewsItem>> = _news
 
     private val _loaded = MutableStateFlow(false)
     val loaded: StateFlow<Boolean> = _loaded
 
-    private var failCount = 0
-    private var lockedUntil = 0L
+    // حماية الرمز: تُحفظ في ذاكرة دائمة فلا تُصفَّر بإعادة تشغيل التطبيق
+    private val guardPrefs = getApplication<android.app.Application>().getSharedPreferences("pin_guard", 0)
+    private var failCount: Int
+        get() = guardPrefs.getInt("fails", 0); set(v) { guardPrefs.edit().putInt("fails", v).apply() }
+    private var lockedUntil: Long
+        get() = guardPrefs.getLong("until", 0L); set(v) { guardPrefs.edit().putLong("until", v).apply() }
+    private var lockLevel: Int
+        get() = guardPrefs.getInt("level", 0); set(v) { guardPrefs.edit().putInt("level", v).apply() }
 
     init {
         refreshApps()
         // الأخبار: تحديث كل 20 دقيقة أو عند تغيير الرابط/التفعيل
         viewModelScope.launch {
-            settings.map { it.showNews to it.newsUrl }.distinctUntilChanged().collectLatest { (on, url) ->
-                if (!on || url.isBlank()) { _news.value = emptyList(); return@collectLatest }
+            settings.map { Triple(it.showNews, it.newsSources, it.newsUrl) }.distinctUntilChanged().collectLatest { (on, srcs, url) ->
+                if (!on) { _news.value = emptyList(); return@collectLatest }
                 while (true) {
-                    val h = NewsRepository.headlines(url)
+                    val h = NewsRepository.headlines(srcs.split(',').filter { it.isNotBlank() }, url)
                     if (h.isNotEmpty()) _news.value = h
                     delay(20 * 60_000L)
                 }
@@ -100,13 +106,20 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     /** يعيد null عند النجاح، أو رسالة الخطأ. فيه تأخير بعد 5 محاولات خاطئة. */
     fun checkPin(pin: String): String? {
         val now = System.currentTimeMillis()
-        if (now < lockedUntil) return "محاولات كثيرة، انتظر ${(lockedUntil - now) / 1000 + 1} ثانية"
+        if (now < lockedUntil) {
+            val sec = (lockedUntil - now) / 1000 + 1
+            return "محاولات خاطئة كثيرة. انتظر " + (if (sec >= 60) "${sec / 60} د ${sec % 60} ث" else "$sec ثانية")
+        }
         val s = settings.value
-        return if (Security.verify(pin, s.pinSalt, s.pinHash)) { failCount = 0; null }
+        return if (Security.verify(pin, s.pinSalt, s.pinHash)) { failCount = 0; lockLevel = 0; null }
         else {
             failCount++
-            if (failCount >= 5) { lockedUntil = now + 30_000; failCount = 0 }
-            "الرمز غير صحيح"
+            if (failCount >= 3) {
+                // بعد 3 محاولات خاطئة: انتظار يتضاعف في كل مرة (30ث، 1د، 2د، 4د … حتى 15 دقيقة)
+                val wait = minOf(30_000L shl lockLevel.coerceAtMost(5), 15 * 60_000L)
+                lockedUntil = now + wait; lockLevel++; failCount = 0
+                "الرمز غير صحيح. أُغلق الإدخال لمدة ${wait / 1000} ثانية"
+            } else "الرمز غير صحيح. متبقي ${3 - failCount} محاولة"
         }
     }
 
