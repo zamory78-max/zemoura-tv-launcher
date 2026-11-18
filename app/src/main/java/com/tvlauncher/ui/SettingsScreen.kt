@@ -118,17 +118,20 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
                 }
             }
             item {
-                ToggleItem("قفل إعدادات النظام", "يطلب الرمز قبل فتح إعدادات البوكس (يحتاج صلاحية إمكانية الوصول أدناه)",
+                ToggleItem("قفل إعدادات النظام", "يطلب الرمز قبل فتح إعدادات البوكس (يحتاج صلاحية «بيانات الاستخدام» أدناه)",
                     sysLock) { v ->
                     if (!vm.hasPin) msg = "عيّن رمزاً سرياً أولاً." else guard("تأكيد الرمز") {
                         ctx.getSharedPreferences("pin_guard", 0).edit().putBoolean("sys_lock", v).apply(); sysLock = v
+                        com.tvlauncher.GuardService.sync(ctx)
                     }
                 }
             }
             item {
-                RowItem("تفعيل صلاحية إمكانية الوصول", "افتح الصفحة ثم فعّل «قفل إعدادات النظام (Zemoura)»") {
+                RowItem("تفعيل صلاحية «الوصول إلى بيانات الاستخدام»", "افتح الصفحة وفعّل Zemoura Launcher فيها",
+                    if (com.tvlauncher.GuardService.hasUsageAccess(ctx)) "مفعّلة ✓" else "غير مفعّلة") {
                     ctx.getSharedPreferences("pin_guard", 0).edit().putLong("grace_until", System.currentTimeMillis() + 5 * 60_000L).apply()
-                    runCatching { ctx.startActivity(Intent(AndroidSettings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                    runCatching { ctx.startActivity(Intent(AndroidSettings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                        .onFailure { msg = "هذا الجهاز لا يوفّر صفحة صلاحية الاستخدام." }
                 }
             }
             item {

@@ -27,7 +27,7 @@ class PinGateActivity : ComponentActivity() {
                 BackHandler { goHome() }
                 PinPrompt("إعدادات النظام مقفلة — أدخل الرمز", err, onDismiss = { goHome() }, onPin = { pin ->
                     val r = if (vm.hasPin) vm.checkPin(pin) else null
-                    if (r == null) { SystemLockService.unlockedUntil = System.currentTimeMillis() + 3 * 60_000L; finish() }
+                    if (r == null) { GuardService.unlockedUntil = System.currentTimeMillis() + 3 * 60_000L; finish() }
                     else err = r
                 })
             }
@@ -37,6 +37,6 @@ class PinGateActivity : ComponentActivity() {
     // إن خرج المستخدم من الشاشة دون إدخال الرمز نعيده للرئيسية بدل ترك الإعدادات مكشوفة
     override fun onStop() {
         super.onStop()
-        if (!isFinishing && System.currentTimeMillis() >= SystemLockService.unlockedUntil) goHome()
+        if (!isFinishing && System.currentTimeMillis() >= GuardService.unlockedUntil) goHome()
     }
 }

@@ -99,6 +99,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         vm.refreshVideos()
+        GuardService.sync(this)
         vm.refreshApps()   // لالتقاط التطبيقات المثبتة/المحذوفة حديثاً
     }
 

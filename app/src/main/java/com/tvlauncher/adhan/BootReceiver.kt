@@ -17,6 +17,7 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val s = runBlocking { Prefs(context).flow.first() }
         AdhanScheduler.scheduleNext(context, s)
+        com.tvlauncher.GuardService.sync(context)
         val boot = intent.action == Intent.ACTION_BOOT_COMPLETED ||
             intent.action == "android.intent.action.QUICKBOOT_POWERON"
         if (boot && s.autoStart) {
