@@ -14,17 +14,28 @@ object RemoteKeys {
     )
 
     /** أزرار شائعة للاختيار اليدوي (للريموتات التي لا نلتقط أزرارها بالضغط). */
-    val common: List<Pair<String, String>> = listOf(
-        KeyEvent.KEYCODE_PROG_RED to "الأحمر", KeyEvent.KEYCODE_PROG_GREEN to "الأخضر",
-        KeyEvent.KEYCODE_PROG_YELLOW to "الأصفر", KeyEvent.KEYCODE_PROG_BLUE to "الأزرق",
-        KeyEvent.KEYCODE_GUIDE to "الدليل (Guide)", KeyEvent.KEYCODE_INFO to "المعلومات (Info)",
-        KeyEvent.KEYCODE_TV to "TV", KeyEvent.KEYCODE_SEARCH to "البحث", KeyEvent.KEYCODE_CAPTIONS to "الترجمة",
-        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE to "تشغيل/إيقاف", KeyEvent.KEYCODE_BOOKMARK to "Bookmark",
-        KeyEvent.KEYCODE_APP_SWITCH to "App switch", KeyEvent.KEYCODE_SETTINGS to "الإعدادات",
-        KeyEvent.KEYCODE_0 to "0", KeyEvent.KEYCODE_1 to "1", KeyEvent.KEYCODE_2 to "2", KeyEvent.KEYCODE_3 to "3",
-        KeyEvent.KEYCODE_4 to "4", KeyEvent.KEYCODE_5 to "5", KeyEvent.KEYCODE_6 to "6", KeyEvent.KEYCODE_7 to "7",
-        KeyEvent.KEYCODE_8 to "8", KeyEvent.KEYCODE_9 to "9"
-    ).map { (k, n) -> "k$k" to "$n  (${KeyEvent.keyCodeToString(k).removePrefix("KEYCODE_")})" }
+    /** أزرار شائعة للاختيار اليدوي؛ أزرار التطبيقات (يوتيوب/نتفليكس/برايم/المتجر) تختلف رموزها بين الريموتات. */
+    val common: List<Pair<String, String>> = run {
+        val named = listOf(
+            KeyEvent.KEYCODE_PROG_RED to "الأحمر", KeyEvent.KEYCODE_PROG_GREEN to "الأخضر",
+            KeyEvent.KEYCODE_PROG_YELLOW to "الأصفر", KeyEvent.KEYCODE_PROG_BLUE to "الأزرق",
+            KeyEvent.KEYCODE_GUIDE to "الدليل", KeyEvent.KEYCODE_INFO to "المعلومات", KeyEvent.KEYCODE_TV to "TV",
+            KeyEvent.KEYCODE_SEARCH to "البحث", KeyEvent.KEYCODE_CAPTIONS to "الترجمة", KeyEvent.KEYCODE_BOOKMARK to "Bookmark",
+            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE to "تشغيل/إيقاف", KeyEvent.KEYCODE_APP_SWITCH to "تبديل التطبيقات",
+            KeyEvent.KEYCODE_SETTINGS to "الإعدادات", KeyEvent.KEYCODE_EXPLORER to "متصفح (Explorer)",
+            KeyEvent.KEYCODE_ENVELOPE to "بريد (Envelope)", KeyEvent.KEYCODE_MUSIC to "موسيقى (Music)",
+            KeyEvent.KEYCODE_CALENDAR to "تقويم", KeyEvent.KEYCODE_CONTACTS to "جهات الاتصال", KeyEvent.KEYCODE_CALCULATOR to "آلة حاسبة",
+            KeyEvent.KEYCODE_ASSIST to "المساعد", KeyEvent.KEYCODE_VOICE_ASSIST to "المساعد الصوتي",
+            KeyEvent.KEYCODE_TV_INPUT to "مدخل TV", KeyEvent.KEYCODE_LAST_CHANNEL to "القناة السابقة",
+            KeyEvent.KEYCODE_CHANNEL_UP to "قناة +", KeyEvent.KEYCODE_CHANNEL_DOWN to "قناة -",
+            KeyEvent.KEYCODE_MEDIA_TOP_MENU to "قائمة الوسائط", KeyEvent.KEYCODE_TV_DATA_SERVICE to "TV Data",
+            KeyEvent.KEYCODE_PAGE_UP to "Page Up", KeyEvent.KEYCODE_PAGE_DOWN to "Page Down"
+        ).map { (k, n) -> "k$k" to "$n  (${KeyEvent.keyCodeToString(k).removePrefix("KEYCODE_")})" }
+        val f = (1..12).map { "k${KeyEvent.KEYCODE_F1 + it - 1}" to "F$it" }
+        val btn = (1..16).map { "k${KeyEvent.KEYCODE_BUTTON_1 + it - 1}" to "BUTTON_$it" }
+        val num = (0..9).map { "k${KeyEvent.KEYCODE_0 + it}" to "$it" }
+        named + f + btn + num
+    }
 
     fun isReserved(e: KeyEvent) = e.keyCode in reserved
 

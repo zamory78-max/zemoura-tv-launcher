@@ -78,6 +78,7 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
     var cat by remember { mutableStateOf("الحماية") }
     var capturedKey by remember { mutableStateOf<Pair<String, String>?>(null) }
     var sysLock by remember { mutableStateOf(ctx.getSharedPreferences("pin_guard", 0).getBoolean("sys_lock", false)) }
+    var keyNote by remember { mutableStateOf("") }
     var boostTick by remember { mutableStateOf(0) }
     var boosting by remember { mutableStateOf(false) }
 
@@ -273,7 +274,7 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
                     }
                 }
             }
-            item { RowItem("ربط زر جديد", "ستضغط الزر في الريموت ثم تختار التطبيق") { capturedKey = null; dialog = "keyCapture" } }
+            item { RowItem("ربط زر جديد", "ستضغط الزر في الريموت ثم تختار التطبيق") { capturedKey = null; keyNote = ""; dialog = "keyCapture" } }
         }
         if (cat == "الإقلاع واللاونشر الافتراضي") {
             item { Section("الإقلاع واللاونشر الافتراضي") }
@@ -335,13 +336,16 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
             DialogFrame("ربط زر الريموت", { dialog = "" }) {
                 Box(Modifier.focusRequester(fr).focusable().onPreviewKeyEvent { e ->
                     val ne = e.nativeKeyEvent
-                    if (ne.action == android.view.KeyEvent.ACTION_DOWN && !RemoteKeys.isReserved(ne)) {
+                    if (ne.action == android.view.KeyEvent.ACTION_DOWN && RemoteKeys.isReserved(ne) && ne.keyCode != android.view.KeyEvent.KEYCODE_BACK) {
+                        keyNote = "وصل الزر ${RemoteKeys.describe(ne)} لكنه محجوز للتنقل ولا يمكن ربطه"; true
+                    } else if (ne.action == android.view.KeyEvent.ACTION_DOWN && !RemoteKeys.isReserved(ne)) {
                         capturedKey = RemoteKeys.id(ne) to RemoteKeys.describe(ne); dialog = "keyPick"; true
                     } else false
                 }) {
                     Text("اضغط الآن الزر الذي تريد ربطه في الريموت…\n(زر الرجوع للإلغاء)\nإن لم يحدث شيء فالنظام يحتفظ بهذا الزر، فاختر من القائمة.",
                         color = Palette.Text, fontSize = 22.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 }
+                if (keyNote.isNotEmpty()) Text(keyNote, color = Palette.Amber, fontSize = 18.sp)
                 PillButton("اختيار الزر من قائمة", onClick = { dialog = "keyList" })
             }
         }
