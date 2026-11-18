@@ -24,6 +24,7 @@ jobs:
         run: gradle assembleRelease --stacktrace
         env:
           ORG_GRADLE_PROJECT_YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          ORG_GRADLE_PROJECT_LICENSE_SECRET: ${{ secrets.LICENSE_SECRET }}
       - name: Rename APK
         run: cp app/build/outputs/apk/release/app-release.apk tv-launcher.apk
       - uses: actions/upload-artifact@v4

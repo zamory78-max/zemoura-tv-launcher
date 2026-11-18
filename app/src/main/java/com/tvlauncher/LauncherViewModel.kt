@@ -63,9 +63,10 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
         }
-        // الطقس: تحديث عند تغيّر المدينة ثم كل 30 دقيقة
+        // الطقس: تحديث عند تغيّر المدينة أو المفتاح ثم كل 30 دقيقة
         viewModelScope.launch {
-            settings.map { it.city }.distinctUntilChanged().collectLatest { city ->
+            settings.map { it.city to it.weatherKey }.distinctUntilChanged().collectLatest { (city, wkey) ->
+                WeatherRepository.apiKey = wkey
                 while (true) {
                     _weather.value = WeatherRepository.current(city)
                     delay(30 * 60_000L)

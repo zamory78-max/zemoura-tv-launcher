@@ -93,7 +93,7 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
     }
     val roleLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
 
-    val allCats = listOf("الحماية", "المظهر", "الأخبار", "صندوق الأسماء", "الصفوف المخصصة", "التطبيقات والفيديو", "الخلفية", "الموقع والصلاة", "أزرار الريموت", "الإقلاع واللاونشر الافتراضي", "التسريع")
+    val allCats = listOf("الحماية", "المظهر", "الأخبار", "صندوق الأسماء", "الصفوف المخصصة", "التطبيقات والفيديو", "الخلفية", "الموقع والصلاة", "الترخيص", "أزرار الريموت", "الإقلاع واللاونشر الافتراضي", "التسريع")
     Row(Modifier.fillMaxSize()) {
         Column(
             Modifier.width(380.dp).fillMaxHeight().background(Color(0x66000000)).verticalScroll(rememberScrollState()).padding(24.dp),
@@ -274,6 +274,22 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
             item { ToggleItem("تشغيل صوت الأذان", "ضع الملف في res/raw/adhan.mp3", s.adhanSound) { v -> vm.update { setAdhanSound(v) } } }
 
         }
+        if (cat == "الترخيص") {
+            item { Section("الترخيص") }
+            item {
+                val st = com.tvlauncher.data.License.status(ctx)
+                RowItem("حالة الترخيص", when (st.state) {
+                    com.tvlauncher.data.License.State.OPEN -> "نسخة بلا قيود (بناء تطوير)"
+                    com.tvlauncher.data.License.State.TRIAL -> "فترة تجريبية"
+                    com.tvlauncher.data.License.State.LICENSED -> "مفعّل ${st.until}"
+                    com.tvlauncher.data.License.State.EXPIRED -> "منتهية"
+                }, if (st.state == com.tvlauncher.data.License.State.TRIAL) "${st.daysLeft} يوم" else null) {}
+            }
+            item { RowItem("رمز هذا الجهاز", "أرسله للبائع للحصول على مفتاح", com.tvlauncher.data.License.deviceCode(ctx)) {} }
+            item { RowItem("إدخال مفتاح التفعيل", null, "تفعيل") { dialog = "licKey" } }
+            item { Section("الطقس التجاري") }
+            item { RowItem("مفتاح Open-Meteo التجاري", "اتركه فارغاً للاستعمال المجاني غير التجاري", if (s.weatherKey.isBlank()) "غير مضبوط" else "مضبوط") { dialog = "wkey" } }
+        }
         if (cat == "أزرار الريموت") {
             item { Section("أزرار الريموت") }
             item { Text("اربط الأزرار الملوّنة أو أزرار الاختصار (يوتيوب، نتفليكس…) بأي تطبيق. تعمل أثناء ظهور اللاونشر. إن احتفظ النظام بزر ما فلن يصل للاونشر ولا يمكن ربطه.", color = Palette.Muted, fontSize = 16.sp) }
@@ -387,6 +403,9 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
                 onPick = { pkg -> vm.update { setKeyMap(RemoteKeys.encode(RemoteKeys.parse(s.keyMap) + (id to pkg))) }; dialog = ""; msg = "تم ربط الزر." },
                 onDismiss = { dialog = "" })
         } ?: run { dialog = "" }
+        "licKey" -> TextInputDialog("مفتاح التفعيل", hint = "XXXX-XXXX-XXXX-XXXX-XXXX", onOk = { k ->
+            msg = if (com.tvlauncher.data.License.activate(ctx, k)) "تم التفعيل ✓" else "المفتاح غير صحيح لهذا الجهاز أو منتهي"; dialog = "" }, onDismiss = { dialog = "" })
+        "wkey" -> TextInputDialog("مفتاح Open-Meteo", s.weatherKey, hint = "apikey", onOk = { vm.update { setWeatherKey(it.trim()) }; dialog = "" }, onDismiss = { dialog = "" })
         "names" -> TextInputDialog("أسماء الأسرة", s.names, hint = "أحمد، سارة، يوسف", onOk = { vm.update { setNames(it.trim()) }; dialog = "" }, onDismiss = { dialog = "" })
         "newsSources" -> {
             val cur = s.newsSources.split(',').filter { it.isNotBlank() }.toSet()

@@ -28,9 +28,11 @@ sealed interface Screen {
 class MainActivity : ComponentActivity() {
     private val vm: LauncherViewModel by viewModels()
     private var screen by mutableStateOf<Screen>(Screen.Home)
+    private var lic by mutableStateOf(com.tvlauncher.data.License.Status(com.tvlauncher.data.License.State.OPEN))
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        lic = com.tvlauncher.data.License.status(this)
         // ملء الشاشة بالكامل وإخفاء أي أشرطة نظام
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
@@ -65,6 +67,8 @@ class MainActivity : ComponentActivity() {
                                 androidx.compose.ui.res.painterResource(R.drawable.logo), "Zemoura Launcher",
                                 Modifier.size(160.dp))
                         }
+                    } else if (lic.state == com.tvlauncher.data.License.State.EXPIRED) {
+                        LicenseScreen(onActivated = { lic = com.tvlauncher.data.License.status(this@MainActivity) })
                     } else WallpaperHost(vm) {
                         when (val sc = screen) {
                             Screen.Home -> HomeScreen(vm, onSettings = { screen = Screen.Settings },
@@ -98,6 +102,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        lic = com.tvlauncher.data.License.status(this)
         vm.refreshVideos()
         GuardService.sync(this)
         vm.refreshApps()   // لالتقاط التطبيقات المثبتة/المحذوفة حديثاً

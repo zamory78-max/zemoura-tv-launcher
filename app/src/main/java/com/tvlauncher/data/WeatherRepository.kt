@@ -18,12 +18,17 @@ object WeatherRepository {
         return try { c.inputStream.bufferedReader().readText() } finally { c.disconnect() }
     }
 
+    /** مفتاح Open-Meteo التجاري (اختياري): يحوّل الطلبات إلى الخادم التجاري. */
+    @Volatile var apiKey: String = ""
+    private fun host(sub: String) = if (apiKey.isBlank()) "https://$sub.open-meteo.com" else "https://customer-$sub.open-meteo.com"
+    private fun keyParam() = if (apiKey.isBlank()) "" else "&apikey=" + URLEncoder.encode(apiKey.trim(), "UTF-8")
+
     suspend fun current(city: City): WeatherInfo? = withContext(Dispatchers.IO) {
         runCatching {
             val root = JSONObject(get(
-                "https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}" +
+                host("api") + "/v1/forecast?latitude=${city.lat}&longitude=${city.lon}" +
                     "&current=temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m,is_day" +
-                    "&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=3&timezone=auto"
+                    "&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=3&timezone=auto" + keyParam()
             ))
             val j = root.getJSONObject("current")
             val d = root.optJSONObject("daily")
@@ -65,7 +70,7 @@ object WeatherRepository {
         runCatching {
             val q = URLEncoder.encode(query.trim(), "UTF-8")
             val arr = JSONObject(get(
-                "https://geocoding-api.open-meteo.com/v1/search?name=$q&count=10&language=ar&format=json" + (countryCode?.let { "&countryCode=$it" } ?: "")
+                host("geocoding-api") + "/v1/search?name=$q&count=10&language=ar&format=json" + (countryCode?.let { "&countryCode=$it" } ?: "") + keyParam()
             )).optJSONArray("results") ?: return@runCatching emptyList()
             (0 until arr.length()).map {
                 val o = arr.getJSONObject(it)

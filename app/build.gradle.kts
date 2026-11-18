@@ -17,6 +17,11 @@ android {
         versionName = "0.1.0"
         val ytKey = (project.findProperty("YOUTUBE_API_KEY") as String?) ?: ""
         buildConfigField("String", "YOUTUBE_API_KEY", "\"$ytKey\"")
+        // سر مفاتيح التفعيل: يُمرَّر من سر GitHub (LICENSE_SECRET) ويُخزَّن مشفّراً بسيطاً (XOR) لا نصاً صريحاً. فارغ = بلا ترخيص (بناء تطوير)
+        val licSecret = (project.findProperty("LICENSE_SECRET") as String?) ?: ""
+        val mask = "ZEM".toByteArray()
+        val licHex = licSecret.toByteArray().mapIndexed { i, b -> "%02x".format((b.toInt() xor mask[i % 3].toInt()) and 0xFF) }.joinToString("")
+        buildConfigField("String", "LICENSE_X", "\"$licHex\"")
     }
 
     // مفتاح توقيع ثابت: بدونه يتغيّر التوقيع في كل بناء ويفشل التحديث فوق النسخة القديمة

@@ -44,6 +44,7 @@ data class Settings(
     val newsSources: String = "aljazeera,echorouk,skynews,alukah",
     val newsDir: String = "right",                // اتجاه حركة الشريط: right | left
     val names: String = "",                       // أسماء صندوق الهدايا (مفصولة بفاصلة أو سطر)
+    val weatherKey: String = "",
     val keyMap: String = ""                       // أزرار الريموت: "k<keyCode>=pkg;s<scanCode>=pkg"
 )
 
@@ -85,6 +86,7 @@ class Prefs(private val context: Context) {
         val newsSources = stringPreferencesKey("news_sources")
         val names = stringPreferencesKey("names")
         val keyMap = stringPreferencesKey("key_map")
+        val weatherKey = stringPreferencesKey("weather_key")
     }
 
     val flow: Flow<Settings> = context.store.data.map { p ->
@@ -125,7 +127,8 @@ class Prefs(private val context: Context) {
             newsDir = p[K.newsDir] ?: d.newsDir,
             newsSources = p[K.newsSources] ?: d.newsSources,
             names = p[K.names] ?: d.names,
-            keyMap = p[K.keyMap] ?: d.keyMap
+            keyMap = p[K.keyMap] ?: d.keyMap,
+            weatherKey = p[K.weatherKey] ?: d.weatherKey
         )
     }
 
@@ -166,6 +169,7 @@ class Prefs(private val context: Context) {
     suspend fun setNewsSources(v: String) = edit { it[K.newsSources] = v }
     suspend fun setNewsDir(v: String) = edit { it[K.newsDir] = v }
     suspend fun setNames(v: String) = edit { it[K.names] = v }
+    suspend fun setWeatherKey(v: String) = edit { it[K.weatherKey] = v }
     suspend fun setKeyMap(v: String) = edit { it[K.keyMap] = v }
 
     private suspend fun edit(block: (MutablePreferences) -> Unit) {
