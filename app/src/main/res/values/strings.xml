@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Zemoura Launcher</string>
+    <string name="system_lock_desc">يطلب الرمز السري قبل فتح إعدادات النظام. لا يقرأ أي محتوى من الشاشة.</string>
+    <string name="system_lock_label">قفل إعدادات النظام (Zemoura)</string>
 </resources>

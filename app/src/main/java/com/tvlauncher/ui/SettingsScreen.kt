@@ -77,6 +77,7 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
     var manualName by remember { mutableStateOf("") }
     var cat by remember { mutableStateOf("الحماية") }
     var capturedKey by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var sysLock by remember { mutableStateOf(ctx.getSharedPreferences("pin_guard", 0).getBoolean("sys_lock", false)) }
     var boostTick by remember { mutableStateOf(0) }
     var boosting by remember { mutableStateOf(false) }
 
@@ -113,6 +114,19 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
             item {
                 ToggleItem("حماية الإعدادات بالرمز", "يُطلب الرمز قبل فتح هذه الصفحة", s.protectSettings) { v ->
                     if (!vm.hasPin) msg = "عيّن رمزاً سرياً أولاً." else guard("تأكيد الرمز") { vm.update { setProtectSettings(v) } }
+                }
+            }
+            item {
+                ToggleItem("قفل إعدادات النظام", "يطلب الرمز قبل فتح إعدادات البوكس (يحتاج صلاحية إمكانية الوصول أدناه)",
+                    sysLock) { v ->
+                    if (!vm.hasPin) msg = "عيّن رمزاً سرياً أولاً." else guard("تأكيد الرمز") {
+                        ctx.getSharedPreferences("pin_guard", 0).edit().putBoolean("sys_lock", v).apply(); sysLock = v
+                    }
+                }
+            }
+            item {
+                RowItem("تفعيل صلاحية إمكانية الوصول", "افتح الصفحة ثم فعّل «قفل إعدادات النظام (Zemoura)»") {
+                    runCatching { ctx.startActivity(Intent(AndroidSettings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 }
             }
             item {
