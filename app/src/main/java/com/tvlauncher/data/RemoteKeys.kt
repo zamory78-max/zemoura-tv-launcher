@@ -57,3 +57,27 @@ object RemoteKeys {
         else -> "مسح ${id.drop(1)}"
     }
 }
+
+/** تحويل أزرار الاختصار التي يعالجها النظام (يوتيوب/نتفليكس/…): عندما يفتح الزر تطبيقاً يحوّله اللاونشر إلى تطبيق آخر. */
+object Redirects {
+    /** وقت آخر تشغيل صدر من اللاونشر نفسه (حتى لا نحوّل فتحاً مقصوداً من الشاشة الرئيسية). */
+    @Volatile var lastOwnLaunch = 0L
+    fun markOwnLaunch() { lastOwnLaunch = System.currentTimeMillis() }
+
+    /** اسم الزر ← الحزم التي يفتحها عادةً. */
+    val slots = listOf(
+        "يوتيوب" to listOf("com.google.android.youtube.tv", "com.google.android.youtube", "com.google.android.apps.youtube.unplugged"),
+        "نتفليكس" to listOf("com.netflix.ninja", "com.netflix.mediaclient"),
+        "برايم فيديو" to listOf("com.amazon.amazonvideo.livingroom", "com.amazon.avod.thirdpartyclient", "com.amazon.avod"),
+        "Google Play" to listOf("com.android.vending")
+    )
+
+    private fun prefs(ctx: android.content.Context) = ctx.getSharedPreferences("pin_guard", 0)
+    fun all(ctx: android.content.Context): Map<String, String> = RemoteKeys.parse(prefs(ctx).getString("redirects", "") ?: "")
+    fun targetFor(ctx: android.content.Context, slot: String): String? = slots.firstOrNull { it.first == slot }?.second?.firstNotNullOfOrNull { all(ctx)[it] }
+    fun set(ctx: android.content.Context, slot: String, target: String?) {
+        val m = all(ctx).toMutableMap()
+        slots.firstOrNull { it.first == slot }?.second?.forEach { if (target == null || it == target) m.remove(it) else m[it] = target }
+        prefs(ctx).edit().putString("redirects", RemoteKeys.encode(m)).apply()
+    }
+}

@@ -48,6 +48,7 @@ object AppRepository {
     }
 
     fun launch(context: Context, pkg: String): Boolean {
+        Redirects.markOwnLaunch()
         val pm = context.packageManager
         val intent = pm.getLeanbackLaunchIntentForPackage(pkg) ?: pm.getLaunchIntentForPackage(pkg)
         return runCatching {

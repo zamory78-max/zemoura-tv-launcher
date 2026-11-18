@@ -34,7 +34,8 @@ class GuardService : Service() {
 
         /** يشغّل الخدمة إن كان القفل مفعّلاً والصلاحية ممنوحة. */
         fun sync(ctx: Context) {
-            val on = ctx.getSharedPreferences("pin_guard", 0).getBoolean("sys_lock", false)
+            val sp = ctx.getSharedPreferences("pin_guard", 0)
+            val on = sp.getBoolean("sys_lock", false) || !sp.getString("redirects", "").isNullOrEmpty()
             runCatching {
                 if (on && hasUsageAccess(ctx)) ctx.startForegroundService(Intent(ctx, GuardService::class.java))
                 else ctx.stopService(Intent(ctx, GuardService::class.java))
@@ -46,6 +47,7 @@ class GuardService : Service() {
     private var lastTs = 0L
     private var current = ""
     private var lastLaunch = 0L
+    private var lastRedirect = 0L
 
     private val tick = object : Runnable {
         override fun run() {
@@ -56,17 +58,32 @@ class GuardService : Service() {
 
     private fun poll() {
         val sp = getSharedPreferences("pin_guard", 0)
-        if (!sp.getBoolean("sys_lock", false)) { stopSelf(); return }
+        val lock = sp.getBoolean("sys_lock", false)
+        val redirects = com.tvlauncher.data.Redirects.all(this)
+        if (!lock && redirects.isEmpty()) { stopSelf(); return }
         val now = System.currentTimeMillis()
         val um = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val ev = um.queryEvents(if (lastTs == 0L) now - 5_000 else lastTs - 500, now)
         val e = UsageEvents.Event()
         while (ev.hasNextEvent()) {
             ev.getNextEvent(e)
-            if (e.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) { current = e.packageName ?: current; sp.edit().putString("last_pkg", current).apply() }
+            if (e.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                val prev = current
+                current = e.packageName ?: current
+                if (current != prev) {
+                    sp.edit().putString("last_pkg", current).apply()
+                    // زر اختصار عالجه النظام: نحوّله للتطبيق المختار إن لم يكن الفتح صادراً من اللاونشر
+                    val target = redirects[current]
+                    if (target != null && target != current && now - com.tvlauncher.data.Redirects.lastOwnLaunch > 3000 &&
+                        now - lastRedirect > 3000) {
+                        lastRedirect = now
+                        com.tvlauncher.data.AppRepository.launch(this, target)
+                    }
+                }
+            }
         }
         lastTs = now
-        if (!isSettingsPkg(current)) return
+        if (!lock || !isSettingsPkg(current)) return
         if (now < unlockedUntil || now < sp.getLong("grace_until", 0L) || now - lastLaunch < 2000) return
         lastLaunch = now
         startActivity(Intent(this, PinGateActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
@@ -76,7 +93,7 @@ class GuardService : Service() {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel("guard", "حماية الإعدادات", NotificationManager.IMPORTANCE_MIN))
         startForeground(77, Notification.Builder(this, "guard").setSmallIcon(android.R.drawable.ic_lock_lock)
-            .setContentTitle("قفل إعدادات النظام مفعّل").build())
+            .setContentTitle("حماية وأزرار الريموت تعمل").build())
         handler.removeCallbacks(tick); handler.post(tick)
         return START_STICKY
     }

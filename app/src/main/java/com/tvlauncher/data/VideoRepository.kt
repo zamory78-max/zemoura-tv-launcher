@@ -199,6 +199,7 @@ object VideoRepository {
     }.getOrDefault("")
 
     fun play(context: Context, v: Video) {
+        Redirects.markOwnLaunch()
         if (v.link.isNotEmpty()) {
             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(v.link)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             return

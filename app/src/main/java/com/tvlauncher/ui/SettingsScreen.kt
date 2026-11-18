@@ -78,6 +78,7 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
     var cat by remember { mutableStateOf("الحماية") }
     var capturedKey by remember { mutableStateOf<Pair<String, String>?>(null) }
     var sysLock by remember { mutableStateOf(ctx.getSharedPreferences("pin_guard", 0).getBoolean("sys_lock", false)) }
+    var redirTick by remember { mutableStateOf(0) }
     var slotName by remember { mutableStateOf("") }
     var slotHint by remember { mutableStateOf("") }
     var keyNote by remember { mutableStateOf("") }
@@ -284,9 +285,13 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
                     }
                 }
             }
-            item { Text("أزرار الاختصار في الريموت — اختر الزر ثم اضغطه في الريموت ليتعرّف عليه اللاونشر:", color = Palette.Text, fontSize = 18.sp) }
-            listOf("يوتيوب" to "youtube", "نتفليكس" to "netflix", "برايم فيديو" to "amazon|primevideo", "Google Play" to "vending").forEach { (nm, hint) ->
-                item(key = "slot$nm") { RowItem("زر $nm في الريموت", "اضغط هنا ثم اضغط الزر نفسه في الريموت") { slotName = nm; slotHint = hint; capturedKey = null; keyNote = ""; dialog = "keyCapture" } }
+            item { Text("أزرار الاختصار (يوتيوب، نتفليكس، برايم، المتجر) يعالجها نظام البوكس نفسه، فيحوّلها اللاونشر إلى التطبيق الذي تختاره. تحتاج صلاحية «بيانات الاستخدام» (في الحماية).", color = Palette.Text, fontSize = 18.sp) }
+            com.tvlauncher.data.Redirects.slots.forEach { (nm, _) ->
+                item(key = "slot$nm$redirTick") {
+                    val tgt = com.tvlauncher.data.Redirects.targetFor(ctx, nm)
+                    RowItem("زر $nm في الريموت", "اختر التطبيق الذي يفتحه هذا الزر بدل التطبيق الأصلي",
+                        tgt?.let { t -> apps.firstOrNull { it.pkg == t }?.label ?: t } ?: "الافتراضي") { slotName = nm; dialog = "redirPick" }
+                }
             }
             item { RowItem("ربط زر آخر", "أي زر آخر في الريموت") { slotName = ""; slotHint = ""; capturedKey = null; keyNote = ""; dialog = "keyCapture" } }
         }
@@ -367,6 +372,12 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
                 }
             }
         }
+        "redirPick" -> ChoiceDialog("زر $slotName ← يفتح", listOf<Pair<String?, String>>(null to "الافتراضي (التطبيق الأصلي)") + apps.map { it.pkg to it.label },
+            onPick = { pkg ->
+                com.tvlauncher.data.Redirects.set(ctx, slotName, pkg); redirTick++
+                com.tvlauncher.GuardService.sync(ctx); dialog = ""
+                msg = if (pkg != null && !com.tvlauncher.GuardService.hasUsageAccess(ctx)) "فعّل صلاحية «بيانات الاستخدام» من قسم الحماية ليعمل التحويل." else "تم الحفظ."
+            }, onDismiss = { dialog = "" })
         "keyList" -> ChoiceDialog("اختر الزر", RemoteKeys.common, onDismiss = { dialog = "" },
             onPick = { id -> capturedKey = id to RemoteKeys.label(id); dialog = "keyPick" })
         "keyPick" -> capturedKey?.let { (id, name) ->
