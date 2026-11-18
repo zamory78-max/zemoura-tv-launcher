@@ -126,6 +126,7 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
             }
             item {
                 RowItem("تفعيل صلاحية إمكانية الوصول", "افتح الصفحة ثم فعّل «قفل إعدادات النظام (Zemoura)»") {
+                    ctx.getSharedPreferences("pin_guard", 0).edit().putLong("grace_until", System.currentTimeMillis() + 5 * 60_000L).apply()
                     runCatching { ctx.startActivity(Intent(AndroidSettings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 }
             }
