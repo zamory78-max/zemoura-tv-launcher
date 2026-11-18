@@ -344,23 +344,27 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
             onToggle = { k -> vm.update { setWallpaperSet(if (k in s.wallpaperSet) s.wallpaperSet - k else s.wallpaperSet + k) } },
             onDismiss = { dialog = "" })
         "keyCapture" -> {
-            // الحوار نافذة مستقلة فلا يصلها dispatchKeyEvent الخاص بالنشاط؛ نلتقط الزر هنا مباشرة
-            val fr = remember { androidx.compose.ui.focus.FocusRequester() }
-            LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
+            // الحوار نافذة مستقلة؛ نلتقط كل ضغطة زر على مستوى محتوى النافذة كله مهما كان العنصر الذي عليه التركيز
             DialogFrame(if (slotName.isEmpty()) "ربط زر الريموت" else "اضغط زر $slotName في الريموت", { dialog = "" }) {
-                Box(Modifier.focusRequester(fr).focusable().onPreviewKeyEvent { e ->
+                Column(Modifier.onPreviewKeyEvent { e ->
                     val ne = e.nativeKeyEvent
-                    if (ne.action == android.view.KeyEvent.ACTION_DOWN && RemoteKeys.isReserved(ne) && ne.keyCode != android.view.KeyEvent.KEYCODE_BACK) {
-                        keyNote = "وصل الزر ${RemoteKeys.describe(ne)} لكنه محجوز للتنقل ولا يمكن ربطه"; true
-                    } else if (ne.action == android.view.KeyEvent.ACTION_DOWN && !RemoteKeys.isReserved(ne)) {
+                    if (ne.action != android.view.KeyEvent.ACTION_DOWN || ne.repeatCount != 0) false
+                    else if (RemoteKeys.isReserved(ne)) {
+                        // التنقل (أسهم/موافق/رجوع) يبقى يعمل؛ نبلغ فقط بالأزرار المحجوزة الأخرى
+                        if (ne.keyCode != android.view.KeyEvent.KEYCODE_BACK && ne.keyCode !in listOf(
+                                android.view.KeyEvent.KEYCODE_DPAD_UP, android.view.KeyEvent.KEYCODE_DPAD_DOWN, android.view.KeyEvent.KEYCODE_DPAD_LEFT,
+                                android.view.KeyEvent.KEYCODE_DPAD_RIGHT, android.view.KeyEvent.KEYCODE_DPAD_CENTER, android.view.KeyEvent.KEYCODE_ENTER))
+                            keyNote = "وصل الزر ${RemoteKeys.describe(ne)} لكنه محجوز ولا يمكن ربطه"
+                        false
+                    } else {
                         capturedKey = RemoteKeys.id(ne) to RemoteKeys.describe(ne); dialog = "keyPick"; true
-                    } else false
-                }) {
-                    Text("اضغط الآن الزر الذي تريد ربطه في الريموت…\n(زر الرجوع للإلغاء)\nإن لم يحدث شيء فالنظام يحتفظ بهذا الزر، فاختر من القائمة.",
+                    }
+                }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text("اضغط الآن الزر الذي تريد ربطه في الريموت…\n(زر الرجوع للإلغاء)\nإن لم يظهر شيء فالنظام يحتفظ بهذا الزر، فاختر من القائمة.",
                         color = Palette.Text, fontSize = 22.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    if (keyNote.isNotEmpty()) Text(keyNote, color = Palette.Amber, fontSize = 18.sp)
+                    PillButton("اختيار الزر من قائمة", onClick = { dialog = "keyList" })
                 }
-                if (keyNote.isNotEmpty()) Text(keyNote, color = Palette.Amber, fontSize = 18.sp)
-                PillButton("اختيار الزر من قائمة", onClick = { dialog = "keyList" })
             }
         }
         "keyList" -> ChoiceDialog("اختر الزر", RemoteKeys.common, onDismiss = { dialog = "" },
