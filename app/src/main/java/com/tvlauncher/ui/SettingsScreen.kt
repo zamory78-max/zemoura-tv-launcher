@@ -320,7 +320,7 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
             DialogFrame("ربط زر الريموت", { dialog = "" }) {
                 Box(Modifier.focusRequester(fr).focusable().onPreviewKeyEvent { e ->
                     val ne = e.nativeKeyEvent
-                    if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && !RemoteKeys.isReserved(ne)) {
+                    if (ne.action == android.view.KeyEvent.ACTION_DOWN && !RemoteKeys.isReserved(ne)) {
                         capturedKey = RemoteKeys.id(ne) to RemoteKeys.describe(ne); dialog = "keyPick"; true
                     } else false
                 }) {
