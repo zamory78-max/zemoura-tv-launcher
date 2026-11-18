@@ -31,7 +31,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     /** يحدّث الفيديوهات عند العودة للشاشة الرئيسية إن مضت 10 دقائق على آخر تحديث. */
     fun refreshVideos() {
         val now = System.currentTimeMillis()
-        if (now - lastVideoRefresh > 10 * 60_000L) { lastVideoRefresh = now; _videoTick.value++ }
+        if (now - lastVideoRefresh > 2 * 60_000L) { lastVideoRefresh = now; _videoTick.value++ }
     }
     private val _videoError = MutableStateFlow("")
     val videoError: StateFlow<String> = _videoError

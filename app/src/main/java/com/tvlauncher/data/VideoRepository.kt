@@ -94,7 +94,7 @@ object VideoRepository {
                         org.xmlpull.v1.XmlPullParser.END_TAG -> when (p.name) {
                             "author" -> inAuthor = false
                             "entry" -> { inEntry = false
-                                if (vid.isNotBlank() && out.size < 6)
+                                if (vid.isNotBlank() && out.size < 15)
                                     out.add(pub to Video(vid, title, author, thumb.ifBlank { "https://i.ytimg.com/vi/$vid/hqdefault.jpg" }, ""))
                             }
                         }
@@ -102,7 +102,13 @@ object VideoRepository {
                 }
                 out
             }.getOrElse { lastError = "${it.javaClass.simpleName} ${it.message.orEmpty().take(60)}"; emptyList() }
-        }.sortedByDescending { it.first }.map { it.second }.take(40)
+        }.let { all ->
+            // الأحدث من كل قناة أولاً (فيديوهان)، ثم تشكيلة عشوائية من الباقي ليتبدّل الصف في كل تحديث
+            val byCh = all.groupBy { it.second.channel }.values.map { l -> l.sortedByDescending { it.first } }
+            val fresh = byCh.flatMap { it.take(2) }.sortedByDescending { it.first }
+            val rest = byCh.flatMap { it.drop(2) }.shuffled()
+            (fresh + rest).map { it.second }.take(40)
+        }
     }
 
     /**
