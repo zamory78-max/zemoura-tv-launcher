@@ -78,6 +78,8 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
     var cat by remember { mutableStateOf("الحماية") }
     var capturedKey by remember { mutableStateOf<Pair<String, String>?>(null) }
     var sysLock by remember { mutableStateOf(ctx.getSharedPreferences("pin_guard", 0).getBoolean("sys_lock", false)) }
+    var slotName by remember { mutableStateOf("") }
+    var slotHint by remember { mutableStateOf("") }
     var keyNote by remember { mutableStateOf("") }
     var boostTick by remember { mutableStateOf(0) }
     var boosting by remember { mutableStateOf(false) }
@@ -125,6 +127,11 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
                         com.tvlauncher.GuardService.sync(ctx)
                     }
                 }
+            }
+            item {
+                val running = ctx.getSharedPreferences("pin_guard", 0)
+                RowItem("حالة القفل (تشخيص)", "آخر تطبيق رصده القفل: ${running.getString("last_pkg", "—")}",
+                    if (sysLock && com.tvlauncher.GuardService.hasUsageAccess(ctx)) "يعمل" else "متوقف") { com.tvlauncher.GuardService.sync(ctx) }
             }
             item {
                 RowItem("تفعيل صلاحية «الوصول إلى بيانات الاستخدام»", "افتح الصفحة وفعّل Zemoura Launcher فيها",
@@ -277,7 +284,11 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
                     }
                 }
             }
-            item { RowItem("ربط زر جديد", "ستضغط الزر في الريموت ثم تختار التطبيق") { capturedKey = null; keyNote = ""; dialog = "keyCapture" } }
+            item { Text("أزرار الاختصار في الريموت — اختر الزر ثم اضغطه في الريموت ليتعرّف عليه اللاونشر:", color = Palette.Text, fontSize = 18.sp) }
+            listOf("يوتيوب" to "youtube", "نتفليكس" to "netflix", "برايم فيديو" to "amazon|primevideo", "Google Play" to "vending").forEach { (nm, hint) ->
+                item(key = "slot$nm") { RowItem("زر $nm في الريموت", "اضغط هنا ثم اضغط الزر نفسه في الريموت") { slotName = nm; slotHint = hint; capturedKey = null; keyNote = ""; dialog = "keyCapture" } }
+            }
+            item { RowItem("ربط زر آخر", "أي زر آخر في الريموت") { slotName = ""; slotHint = ""; capturedKey = null; keyNote = ""; dialog = "keyCapture" } }
         }
         if (cat == "الإقلاع واللاونشر الافتراضي") {
             item { Section("الإقلاع واللاونشر الافتراضي") }
@@ -336,7 +347,7 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
             // الحوار نافذة مستقلة فلا يصلها dispatchKeyEvent الخاص بالنشاط؛ نلتقط الزر هنا مباشرة
             val fr = remember { androidx.compose.ui.focus.FocusRequester() }
             LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
-            DialogFrame("ربط زر الريموت", { dialog = "" }) {
+            DialogFrame(if (slotName.isEmpty()) "ربط زر الريموت" else "اضغط زر $slotName في الريموت", { dialog = "" }) {
                 Box(Modifier.focusRequester(fr).focusable().onPreviewKeyEvent { e ->
                     val ne = e.nativeKeyEvent
                     if (ne.action == android.view.KeyEvent.ACTION_DOWN && RemoteKeys.isReserved(ne) && ne.keyCode != android.view.KeyEvent.KEYCODE_BACK) {
@@ -355,7 +366,9 @@ fun SettingsScreen(vm: LauncherViewModel, onBack: () -> Unit, guard: (String, ()
         "keyList" -> ChoiceDialog("اختر الزر", RemoteKeys.common, onDismiss = { dialog = "" },
             onPick = { id -> capturedKey = id to RemoteKeys.label(id); dialog = "keyPick" })
         "keyPick" -> capturedKey?.let { (id, name) ->
-            ChoiceDialog("الزر $name ← اختر التطبيق", apps.map { it.pkg to it.label },
+            val rx = if (slotHint.isEmpty()) null else Regex(slotHint)
+            val ordered = apps.sortedByDescending { rx != null && rx.containsMatchIn(it.pkg.lowercase()) }
+            ChoiceDialog("الزر ${if (slotName.isEmpty()) name else "$slotName ($name)"} ← اختر التطبيق", ordered.map { it.pkg to it.label },
                 onPick = { pkg -> vm.update { setKeyMap(RemoteKeys.encode(RemoteKeys.parse(s.keyMap) + (id to pkg))) }; dialog = ""; msg = "تم ربط الزر." },
                 onDismiss = { dialog = "" })
         } ?: run { dialog = "" }

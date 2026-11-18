@@ -24,8 +24,8 @@ class GuardService : Service() {
         @Volatile var unlockedUntil = 0L
 
         fun isSettingsPkg(p: String) =
-            p == "com.android.settings" || p == "com.android.tv.settings" || p == "com.google.android.tvsettings" ||
-                p.endsWith(".tv.settings") || p.endsWith(".tvsettings")
+            !p.startsWith("com.tvlauncher") && !p.contains("providers") && !p.contains("intelligence") &&
+                (p.contains("settings") || p.contains("setting"))
 
         fun hasUsageAccess(ctx: Context): Boolean = runCatching {
             val ops = ctx.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
@@ -63,7 +63,7 @@ class GuardService : Service() {
         val e = UsageEvents.Event()
         while (ev.hasNextEvent()) {
             ev.getNextEvent(e)
-            if (e.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) current = e.packageName ?: current
+            if (e.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) { current = e.packageName ?: current; sp.edit().putString("last_pkg", current).apply() }
         }
         lastTs = now
         if (!isSettingsPkg(current)) return
